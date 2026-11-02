@@ -793,7 +793,7 @@ class _PlaygroundTabState extends ConsumerState<_PlaygroundTab> {
               child: TextField(
                 controller: _ctrl,
                 decoration: InputDecoration(
-                  hintText: 'e.g. USER_10005',
+                  hintText: 'e.g. 1882',
                   prefixIcon: const Icon(Icons.person_search_outlined, size: 18),
                   filled: true,
                   fillColor: isDark ? AppColors.backgroundDark : AppColors.backgroundLight,

@@ -160,7 +160,8 @@ async def score_distribution(
     redis=Depends(get_redis),
 ):
     """Return histogram of score distribution for a model (purchase | churn)."""
-    if model not in ("purchase", "churn"):
+    norm = model.lower().replace("_probability", "").replace("_risk", "")
+    if norm not in ("purchase", "churn"):
         raise HTTPException(status_code=400, detail="model must be 'purchase' or 'churn'")
-    dist = await get_score_distribution(redis, db, model)
+    dist = await get_score_distribution(redis, db, norm)
     return success_response(dist)

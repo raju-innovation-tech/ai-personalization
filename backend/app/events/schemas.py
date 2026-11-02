@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -22,7 +22,7 @@ class EventIn(BaseModel):
     product_id: str | None = Field(default=None, max_length=128)
     session_id: str | None = Field(default=None, max_length=128)
     platform: Platform = Platform.UNKNOWN
-    timestamp: datetime
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     metadata: dict = Field(default_factory=dict)
     idempotency_key: str | None = Field(
         default=None,
@@ -39,9 +39,11 @@ class EventIn(BaseModel):
 
     @field_validator("timestamp")
     @classmethod
-    def timestamp_must_be_timezone_aware(cls, v: datetime) -> datetime:
+    def timestamp_must_be_timezone_aware(cls, v: datetime | None) -> datetime:
+        if v is None:
+            return datetime.now(timezone.utc)
         if v.tzinfo is None:
-            raise ValueError("timestamp must be timezone-aware (include UTC offset)")
+            return v.replace(tzinfo=timezone.utc)
         return v
 
 

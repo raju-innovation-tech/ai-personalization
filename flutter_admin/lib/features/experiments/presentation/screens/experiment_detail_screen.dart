@@ -474,7 +474,7 @@ class _AssignmentChecker extends ConsumerStatefulWidget {
 }
 
 class _AssignmentCheckerState extends ConsumerState<_AssignmentChecker> {
-  final TextEditingController _user = TextEditingController(text: 'USER_10005');
+  final TextEditingController _user = TextEditingController(text: '1882');
   Future<AssignmentPreview>? _future;
 
   @override

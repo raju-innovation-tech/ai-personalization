@@ -483,11 +483,21 @@ async def seed_experiments(db) -> None:
     logger.info("seed_experiments_created", experiments=3, exposures=len(exposures), extra_purchases=len(extra_events))
 
 
-async def main(reset: bool) -> None:
+async def main(reset: bool, allow_mock: bool = False) -> None:
     random.seed(42)
     Faker.seed(42)
     async with AsyncSessionLocal() as db:
         await seed_admin(db)
+        # Check if real store products/data exist
+        real_check = (await db.execute(select(Product.id).limit(1))).first()
+        if real_check and not allow_mock:
+            logger.info("real_store_data_preserved", reason="Store contains real Welfog catalog. Mock seeding skipped.")
+            return
+
+        if not allow_mock:
+            logger.info("mock_seed_prevented", reason="--allow-mock flag required to inject synthetic demo data.")
+            return
+
         await seed_demo_staff(db)
         if reset:
             await reset_catalog_and_events(db)
@@ -511,5 +521,6 @@ async def main(reset: bool) -> None:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Seed the database with mock data")
     parser.add_argument("--reset", action="store_true", help="delete products, customers and events first")
+    parser.add_argument("--allow-mock", action="store_true", help="explicitly permit mock demo data injection")
     args = parser.parse_args()
-    asyncio.run(main(args.reset))
+    asyncio.run(main(args.reset, args.allow_mock))

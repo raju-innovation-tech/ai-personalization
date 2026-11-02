@@ -25,23 +25,23 @@ const List<(String, String)> _snippets = [
   (
     '3. Send customer events (no token)',
     r'''curl -X POST {BASE}/events -H "Content-Type: application/json" \
-  -d '{"event_type":"PURCHASE","external_user_id":"U1","product_id":"SKU-1","session_id":"order-77","timestamp":"2026-10-14T10:00:00Z","metadata":{"quantity":1}}' ''',
+  -d '{"event_type":"PURCHASE","external_user_id":"1882","product_id":"2608911","session_id":"order-77","metadata":{"quantity":1}}' ''',
   ),
   (
     '4. Show recommendations (no token)',
-    r'''curl "{BASE}/recommendations/user/U1?limit=8"
-curl "{BASE}/recommendations/similar/SKU-1"''',
+    r'''curl "{BASE}/recommendations/user/1882?limit=8"
+curl "{BASE}/recommendations/similar/2608911"''',
   ),
   (
     '5. Show offers for a customer (no token)',
-    r'''curl "{BASE}/offers/user/U1?cart_value=2500&category=Laptops"''',
+    r'''curl "{BASE}/offers/user/1882?cart_value=2500"''',
   ),
   (
     '6. Checkout: validate, then redeem (token needed)',
     r'''curl -X POST {BASE}/offers/validate -H "Authorization: Bearer TOKEN" -H "Content-Type: application/json" \
-  -d '{"code":"VIP15","external_user_id":"U1","order_value":2500,"categories":["Laptops"]}'
+  -d '{"code":"WELFOG","external_user_id":"1882","order_value":2500}'
 curl -X POST {BASE}/offers/redeem -H "Authorization: Bearer TOKEN" -H "Content-Type: application/json" \
-  -d '{"code":"VIP15","external_user_id":"U1","order_id":"ORD-1001","order_value":2500,"categories":["Laptops"]}' ''',
+  -d '{"code":"WELFOG","external_user_id":"1882","order_id":"ORD-1001","order_value":2500}' ''',
   ),
 ];
 

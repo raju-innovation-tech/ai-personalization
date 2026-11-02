@@ -40,10 +40,10 @@ extension on _Mode {
   String get sample {
     switch (this) {
       case _Mode.forUser:
-        return 'USER_10005';
+        return '1882';
       case _Mode.similar:
       case _Mode.together:
-        return 'PROD_1010';
+        return '2608911';
       case _Mode.popular:
         return '';
     }

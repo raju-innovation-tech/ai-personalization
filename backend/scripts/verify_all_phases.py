@@ -47,8 +47,8 @@ async def main():
             f"{BASE_URL}/events",
             json={
                 "event_type": "PRODUCT_VIEW",
-                "external_user_id": "USER_VERIFY_1",
-                "product_id": "PROD_1001",
+                "external_user_id": "1882",
+                "product_id": "2608911",
                 "session_id": "sess-verify-1",
                 "timestamp": "2026-10-28T10:00:00Z",
             },
@@ -75,7 +75,7 @@ async def main():
         print(f"  ✓ Popular recommendations OK ({len(r.json()['data']['items'])} items)")
 
         # User recos
-        r = await client.get(f"{BASE_URL}/recommendations/user/USER_10005?limit=5")
+        r = await client.get(f"{BASE_URL}/recommendations/user/1882?limit=5")
         assert r.status_code == 200
         assert "items" in r.json()["data"]
         print(f"  ✓ User hybrid recommendations OK ({len(r.json()['data']['items'])} items)")
@@ -124,7 +124,7 @@ async def main():
         print(f"  ✓ Offers directory OK (Total: {offers_total} offers)")
 
         # Storefront eligible offers for user
-        r = await client.get(f"{BASE_URL}/offers/user/USER_10005?cart_value=3000")
+        r = await client.get(f"{BASE_URL}/offers/user/1882?cart_value=3000")
         assert r.status_code == 200
         eligible = r.json()["data"]["items"]
         print(f"  ✓ User personalized offer eligibility OK ({len(eligible)} offers eligible)")
@@ -135,7 +135,7 @@ async def main():
             r = await client.post(
                 f"{BASE_URL}/offers/validate",
                 headers=headers,
-                json={"code": code, "external_user_id": "USER_10005", "order_value": 3000},
+                json={"code": code, "external_user_id": "1882", "order_value": 3000},
             )
             assert r.status_code == 200
             val_data = r.json()["data"]
@@ -189,7 +189,7 @@ async def main():
         ml_models = r.json()["data"].get("models", [])
         print(f"  ✓ Model Registry active: {[m['name'] for m in ml_models]}")
 
-        r = await client.get(f"{BASE_URL}/ml/customers/USER_10005", headers=headers)
+        r = await client.get(f"{BASE_URL}/ml/customers/1882", headers=headers)
         assert r.status_code == 200
         ml_preds = r.json()["data"]
         purch = ml_preds["purchase_probability"]

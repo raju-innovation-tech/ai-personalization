@@ -21,6 +21,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Callable
 
+from dotenv import load_dotenv
+
 from app.integrations.welfog import mapping, readers
 
 ALL_SOURCES = ("products", "orders", "carts", "wishlists", "reviews", "user_events")
@@ -138,6 +140,7 @@ def build_options() -> mapping.MapOptions:
 
 
 def main(argv: list[str] | None = None) -> int:
+    load_dotenv()
     parser = argparse.ArgumentParser(description="Sync Welfog data into the AI personalization engine")
     parser.add_argument("--sources", default=",".join(ALL_SOURCES), help=f"comma list of: {', '.join(ALL_SOURCES)}")
     parser.add_argument("--dry-run", action="store_true", help="read and map only; send nothing, save no state")

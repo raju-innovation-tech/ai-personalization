@@ -456,7 +456,7 @@ class _Playground extends ConsumerStatefulWidget {
 }
 
 class _PlaygroundState extends ConsumerState<_Playground> {
-  final TextEditingController _user = TextEditingController(text: 'USER_10005');
+  final TextEditingController _user = TextEditingController(text: '1882');
   final TextEditingController _category = TextEditingController();
   final TextEditingController _cart = TextEditingController();
   Future<List<OfferSuggestion>>? _future;
