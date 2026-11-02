@@ -93,34 +93,12 @@ class _DashboardShellState extends ConsumerState<DashboardShell> {
           tooltip: 'Navigation Menu',
           onPressed: () => _scaffoldKey.currentState?.openDrawer(),
         ),
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [AppColors.primary, AppColors.accentPurple],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 16),
-            ),
-            const SizedBox(width: 8),
-            Flexible(
-              child: Text(
-                _titleForPath(widget.currentPath),
-                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 17),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
+        title: Text(
+          _titleForPath(widget.currentPath),
+          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
         ),
         actions: const [
           SearchIconButton(),
-          AlertsButton(),
           ThemeToggleButton(),
           SizedBox(width: 4),
         ],
@@ -535,34 +513,38 @@ class _SidebarItem extends StatelessWidget {
             ? Border.all(color: AppColors.primary.withValues(alpha: 0.3))
             : null,
       ),
-      child: ListTile(
-        dense: true,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-        leading: Icon(
-          destination.icon,
-          color: selected ? AppColors.primary : color,
-          size: 20,
-        ),
-        title: Text(
-          destination.label,
-          style: TextStyle(
-            color: color,
-            fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-            fontSize: 13.5,
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(10),
+        child: ListTile(
+          dense: true,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+          leading: Icon(
+            destination.icon,
+            color: selected ? AppColors.primary : color,
+            size: 20,
           ),
+          title: Text(
+            destination.label,
+            style: TextStyle(
+              color: color,
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+              fontSize: 13.5,
+            ),
+          ),
+          trailing: selected
+              ? Container(
+                  width: 6,
+                  height: 6,
+                  decoration: const BoxDecoration(
+                    color: AppColors.primary,
+                    shape: BoxShape.circle,
+                  ),
+                )
+              : null,
+          onTap: () => _navigate(context),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ),
-        trailing: selected
-            ? Container(
-                width: 6,
-                height: 6,
-                decoration: const BoxDecoration(
-                  color: AppColors.primary,
-                  shape: BoxShape.circle,
-                ),
-              )
-            : null,
-        onTap: () => _navigate(context),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
     );
   }

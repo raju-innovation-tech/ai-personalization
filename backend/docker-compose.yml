@@ -1,4 +1,4 @@
-services:
+cservices:
   postgres:
     image: postgres:16-alpine
     container_name: aip_postgres
@@ -12,7 +12,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U raju -d ai_personalization"]
+      test: [ "CMD-SHELL", "pg_isready -U raju -d ai_personalization" ]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -24,7 +24,7 @@ services:
     ports:
       - "6379:6379"
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: [ "CMD", "redis-cli", "ping" ]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -73,7 +73,7 @@ services:
       - redis
       - worker
     ports:
-      - "5555:5555"
+      - "8555:5555"
     volumes:
       - .:/app
     command: celery -A app.workers.celery_app flower --port=5555

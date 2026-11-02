@@ -63,16 +63,20 @@ class DashboardScreen extends ConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
+                      Wrap(
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 8,
                         children: [
                           Text(
                             'Welcome back, $userName',
-                            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: -0.4,
-                                ),
+                            style: (Responsive.isMobile(context)
+                                    ? Theme.of(context).textTheme.titleLarge
+                                    : Theme.of(context).textTheme.headlineSmall)
+                                ?.copyWith(
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.4,
+                            ),
                           ),
-                          const SizedBox(width: 8),
                           const Text('👋', style: TextStyle(fontSize: 20)),
                         ],
                       ),
@@ -143,54 +147,61 @@ class DashboardScreen extends ConsumerWidget {
               child: Text(errorMessageOf(overviewAsync.error!), style: Theme.of(context).textTheme.bodyMedium),
             ),
 
-          // Fully Responsive Adaptive KPI Cards Grid
+          // Fully Responsive Adaptive KPI Cards Grid (Zero-assertion safe on Android / Web / Desktop)
           LayoutBuilder(
             builder: (context, constraints) {
+              if (constraints.maxWidth <= 0) {
+                return const SizedBox.shrink();
+              }
               final width = constraints.maxWidth;
               final crossAxisCount = width < 540 ? 1 : (width < 960 ? 2 : 4);
-              final itemHeight = width < 540 ? 142.0 : 160.0;
               final cardWidth = (width - (crossAxisCount - 1) * 16) / crossAxisCount;
 
-              return GridView.count(
-                crossAxisCount: crossAxisCount,
-                crossAxisSpacing: 16,
-                mainAxisSpacing: 16,
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                childAspectRatio: cardWidth / itemHeight,
+              final cards = [
+                KpiCard(
+                  label: 'Total Customers',
+                  value: overview == null ? '—' : formatCount(overview.customers),
+                  icon: Icons.people_alt_rounded,
+                  accentColor: AppColors.primary,
+                  subtitle: 'Verified shoppers & registered buyers',
+                ),
+                KpiCard(
+                  label: 'Catalogue Products',
+                  value: overview == null ? '—' : formatCount(overview.products),
+                  icon: Icons.inventory_2_rounded,
+                  accentColor: AppColors.info,
+                  subtitle: overview == null ? null : '${formatCount(overview.activeProducts)} in-stock & active',
+                ),
+                KpiCard(
+                  label: 'Recommendations',
+                  value: overview == null ? '—' : formatCount(overview.recommendationsServed),
+                  icon: Icons.auto_awesome_rounded,
+                  accentColor: AppColors.success,
+                  subtitle: overview == null
+                      ? null
+                      : '${formatCount(overview.recommendationsServed7d)} served in 7d  •  CTR ${formatPercent(overview.ctr)}',
+                ),
+                KpiCard(
+                  label: 'Offers & Coupons',
+                  value: overview == null ? '—' : formatCount(overview.offersImpressions),
+                  icon: Icons.local_offer_rounded,
+                  accentColor: AppColors.warning,
+                  subtitle: overview == null
+                      ? null
+                      : '${formatCount(overview.offersRedemptions)} redeemed  •  ${formatCount(overview.offersActive)} active coupon',
+                ),
+              ];
+
+              return Wrap(
+                spacing: 16,
+                runSpacing: 16,
                 children: [
-                  KpiCard(
-                    label: 'Total Customers',
-                    value: overview == null ? '—' : formatCount(overview.customers),
-                    icon: Icons.people_alt_rounded,
-                    accentColor: AppColors.primary,
-                    subtitle: 'Verified shoppers & registered buyers',
-                  ),
-                  KpiCard(
-                    label: 'Catalogue Products',
-                    value: overview == null ? '—' : formatCount(overview.products),
-                    icon: Icons.inventory_2_rounded,
-                    accentColor: AppColors.info,
-                    subtitle: overview == null ? null : '${formatCount(overview.activeProducts)} in-stock & active',
-                  ),
-                  KpiCard(
-                    label: 'Recommendations',
-                    value: overview == null ? '—' : formatCount(overview.recommendationsServed),
-                    icon: Icons.auto_awesome_rounded,
-                    accentColor: AppColors.success,
-                    subtitle: overview == null
-                        ? null
-                        : '${formatCount(overview.recommendationsServed7d)} served in 7d  •  CTR ${formatPercent(overview.ctr)}',
-                  ),
-                  KpiCard(
-                    label: 'Offers & Coupons',
-                    value: overview == null ? '—' : formatCount(overview.offersImpressions),
-                    icon: Icons.local_offer_rounded,
-                    accentColor: AppColors.warning,
-                    subtitle: overview == null
-                        ? null
-                        : '${formatCount(overview.offersRedemptions)} redeemed  •  ${formatCount(overview.offersActive)} active coupon',
-                  ),
+                  for (final card in cards)
+                    SizedBox(
+                      width: cardWidth,
+                      height: 160,
+                      child: card,
+                    ),
                 ],
               );
             },
