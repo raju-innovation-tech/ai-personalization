@@ -31,7 +31,7 @@ PG = dict(
     port     = int(os.getenv("WELFOG_PG_PORT","5433")),
     database = os.getenv("WELFOG_PG_DB","welfog_product"),
     user     = os.getenv("WELFOG_PG_USER","welfog_user"),
-    password = os.getenv("WELFOG_PG_PASS","welfog123"),
+    password = os.getenv("WELFOG_PG_PASS",'Techno$"ad"708433insVIKRANT'),
 )
 
 # Bhai ka MySQL (orders, wishlists, reviews)
@@ -47,7 +47,7 @@ MY = dict(
 
 
 AI_URL   = os.getenv("AI_BASE_URL","http://localhost:8000/api/v1")
-AI_TOKEN = os.getenv("AI_SERVICE_TOKEN","AI_SERVICE_TOKEN=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJiOTAzZWVmNy1mNjMzLTRiN2ItOTkwZi03YjMzMTFiZmU1NjkiLCJ0eXBlIjoiYWNjZXNzIiwiaWF0IjoxNzkzMDE0OTgwLCJleHAiOjE3OTMwMTY3ODAsImp0aSI6IjczNjFhZjI1LTcyMDEtNGM5OS05ZGYzLTg3NWU0ZmZkMTM0MiIsInJvbGUiOiJTVVBFUl9BRE1JTiJ9.psHfTErYnymzyyk0mSOh-Ds5sujs8IlBVR6N7ZBia20")
+AI_TOKEN = os.getenv("AI_SERVICE_TOKEN","AI_SERVICE_TOKEN=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIwYTZiM2Q1NS0yNjBlLTRhY2MtYWYzOS00MmYxYTc0OWRjYWYiLCJ0eXBlIjoiYWNjZXNzIiwiaWF0IjoxNzkzNjE2NjI1LCJleHAiOjE3OTM2MTg0MjUsImp0aSI6IjU2ODc5ODBkLTRmMDYtNGYzNC04M2JiLTA4NmNkYWNkNWRiMyIsInJvbGUiOiJTVVBFUl9BRE1JTiJ9.tg5W4SSHb_t6uOQb0N0n5XSQsFuE3cBkIn8SHaPHMeg")
 BATCH    = 200
 # ─── HELPERS ──────────────────────────────────────────────
 def _ikey(*parts) -> str:

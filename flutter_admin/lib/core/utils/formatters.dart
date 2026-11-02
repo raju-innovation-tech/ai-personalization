@@ -26,10 +26,12 @@ String formatTimestamp(String iso) {
   return DateFormat('d MMM y, HH:mm').format(parsed.toLocal());
 }
 
-/// 1234567 -> "₹12.3L" style compact money for KPI tiles.
+/// 1234 -> "₹1.2K", 1234567 -> "₹12.3L" style compact money for KPI tiles.
 String formatCompactPrice(double? value) {
   if (value == null) return '—';
-  return NumberFormat.compactCurrency(locale: 'en_IN', symbol: '₹', decimalDigits: 1).format(value);
+  final formatted = NumberFormat.compactCurrency(locale: 'en_IN', symbol: '₹', decimalDigits: 1).format(value);
+  // In en_IN locale, intl formats thousands with 'T'. Replace 'T' with standard 'K'.
+  return formatted.replaceAll(RegExp(r'T(?=\b|$)'), 'K');
 }
 
 /// 0 -> "today", 1 -> "1 day ago", 12 -> "12 days ago", null -> "—"
