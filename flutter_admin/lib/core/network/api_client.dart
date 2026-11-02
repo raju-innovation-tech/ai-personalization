@@ -1,4 +1,7 @@
+import 'dart:io' show Platform;
+
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:logger/logger.dart';
 
 import '../constants/app_constants.dart';
@@ -6,27 +9,28 @@ import '../errors/app_failure.dart';
 import '../storage/secure_token_storage.dart';
 
 /// Thin wrapper around Dio, configured with:
+///  - Dynamic base URL with cross-device auto-fallback (Wi-Fi LAN IP, localhost, emulator)
 ///  - JSON base options + timeouts
 ///  - Bearer token attachment
 ///  - Automatic access-token refresh on 401 (single retry)
 ///  - Consistent AppFailure mapping for callers
-///
-/// The refresh-token call itself must bypass this client's interceptor
-/// (it uses a bare Dio instance) to avoid infinite refresh loops.
 class ApiClient {
   ApiClient({required SecureTokenStorage tokenStorage, required this.onUnauthorized})
       : _tokenStorage = tokenStorage,
         _logger = Logger(printer: SimplePrinter(colors: false)) {
+    final initialUrl = _resolveInitialUrl();
     _dio = Dio(
       BaseOptions(
-        baseUrl: AppConstants.apiBaseUrl,
-        connectTimeout: const Duration(seconds: 15),
+        baseUrl: initialUrl,
+        connectTimeout: const Duration(seconds: 10),
         receiveTimeout: const Duration(seconds: 15),
         headers: {'Content-Type': 'application/json'},
       ),
     );
 
-    _refreshDio = Dio(BaseOptions(baseUrl: AppConstants.apiBaseUrl));
+    _refreshDio = Dio(BaseOptions(baseUrl: initialUrl));
+
+    _initCustomUrl();
 
     _dio.interceptors.add(
       InterceptorsWrapper(
@@ -40,8 +44,6 @@ class ApiClient {
         onError: (DioException error, handler) async {
           final isUnauthorized = error.response?.statusCode == 401;
           final isRetry = error.requestOptions.extra['retried'] == true;
-          // A 401 from login/refresh means "wrong credentials / dead refresh
-          // token", not "expired access token" - never try to refresh for those.
           final path = error.requestOptions.path;
           final isAuthCall = path.contains('/auth/login') || path.contains('/auth/refresh');
 
@@ -74,15 +76,77 @@ class ApiClient {
   final SecureTokenStorage _tokenStorage;
   final Logger _logger;
 
-  /// Called when the session cannot be recovered — the app should route
-  /// back to the login screen.
   final void Function() onUnauthorized;
 
-  /// Single-flight: if several requests get a 401 at the same time they all
-  /// share ONE refresh call. The backend rotates refresh tokens, so a second
-  /// concurrent refresh with the same token would be rejected and log the
-  /// user out.
   Future<bool>? _refreshInFlight;
+
+  String get baseUrl => _dio.options.baseUrl;
+
+  static String _resolveInitialUrl() {
+    const envUrl = String.fromEnvironment('API_BASE_URL');
+    if (envUrl.isNotEmpty) return envUrl;
+
+    if (kIsWeb) return AppConstants.defaultApiBaseUrl;
+
+    if (Platform.isAndroid) {
+      // On physical Android devices, direct Wi-Fi LAN IP connects directly without ADB reverse.
+      return AppConstants.lanApiBaseUrl;
+    }
+
+    return AppConstants.defaultApiBaseUrl;
+  }
+
+  List<String> get candidateUrls {
+    return {
+      _dio.options.baseUrl,
+      AppConstants.lanApiBaseUrl,
+      AppConstants.defaultApiBaseUrl,
+      AppConstants.emulatorApiBaseUrl,
+    }.toList();
+  }
+
+  void _initCustomUrl() async {
+    try {
+      final saved = await _tokenStorage.getServerUrl();
+      if (saved != null && saved.isNotEmpty && saved != _dio.options.baseUrl) {
+        _dio.options.baseUrl = saved;
+        _refreshDio.options.baseUrl = saved;
+      }
+    } catch (_) {}
+  }
+
+  void updateBaseUrl(String newUrl) {
+    var url = newUrl.trim();
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      url = 'http://$url';
+    }
+    if (!url.endsWith('/api/v1')) {
+      if (url.endsWith('/')) {
+        url = '${url}api/v1';
+      } else {
+        url = '$url/api/v1';
+      }
+    }
+    _dio.options.baseUrl = url;
+    _refreshDio.options.baseUrl = url;
+    _tokenStorage.saveServerUrl(url);
+    _logger.i('Active API base URL updated to: $url');
+  }
+
+  Future<bool> pingServer([String? testUrl]) async {
+    try {
+      final url = testUrl ?? _dio.options.baseUrl;
+      final dio = Dio(BaseOptions(
+        baseUrl: url,
+        connectTimeout: const Duration(seconds: 4),
+        receiveTimeout: const Duration(seconds: 4),
+      ));
+      final res = await dio.get('/health');
+      return res.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
 
   Future<bool> _tryRefreshToken() {
     return _refreshInFlight ??= _doRefreshToken().whenComplete(() => _refreshInFlight = null);
@@ -131,6 +195,25 @@ class ApiClient {
       }
       throw AppException(AppFailure.unknown('Unexpected response shape'));
     } on DioException catch (e) {
+      if (e.type == DioExceptionType.connectionError) {
+        // Automatic fallback candidate probe
+        for (final candidate in candidateUrls) {
+          if (candidate == _dio.options.baseUrl) continue;
+          try {
+            _logger.i('Connection failed to ${_dio.options.baseUrl}. Trying candidate: $candidate');
+            _dio.options.baseUrl = candidate;
+            _refreshDio.options.baseUrl = candidate;
+            final fallbackResponse = await call();
+            if (fallbackResponse.data is Map<String, dynamic>) {
+              _logger.i('Successfully connected via candidate: $candidate');
+              _tokenStorage.saveServerUrl(candidate);
+              return fallbackResponse.data as Map<String, dynamic>;
+            }
+          } catch (_) {
+            // Keep trying next candidate
+          }
+        }
+      }
       throw AppException(_mapDioException(e));
     }
   }

@@ -5,6 +5,7 @@ import '../../../../core/errors/app_failure.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/utils/responsive.dart';
+import '../../../../core/widgets/server_config_dialog.dart';
 import '../../../../core/widgets/state_widgets.dart';
 import '../../../segments/presentation/providers/segments_providers.dart';
 import '../../../segments/presentation/widgets/segment_chip.dart';
@@ -403,9 +404,21 @@ class _SystemStatusBanner extends StatelessWidget {
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  'Could not reach backend API at configured URL. Check Docker backend container.',
+                  'Could not reach backend API at configured URL. Check Docker backend container or tap to change server address.',
                   style: TextStyle(color: isDark ? Colors.white : AppColors.danger, fontSize: 13),
                 ),
+              ),
+              const SizedBox(width: 8),
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.danger,
+                  side: BorderSide(color: AppColors.danger.withValues(alpha: 0.5)),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  visualDensity: VisualDensity.compact,
+                ),
+                icon: const Icon(Icons.settings_ethernet_rounded, size: 16),
+                label: const Text('Server Settings', style: TextStyle(fontSize: 12)),
+                onPressed: () => showServerConfigDialog(context),
               ),
             ],
           ),

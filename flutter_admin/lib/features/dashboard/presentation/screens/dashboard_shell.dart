@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/routing/nav_destinations.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/responsive.dart';
+import '../../../../core/widgets/server_config_dialog.dart';
 import '../../../../core/widgets/theme_toggle_button.dart';
 import '../../../auth/domain/admin_user.dart';
 import '../../../auth/presentation/providers/auth_controller.dart';
@@ -97,10 +98,15 @@ class _DashboardShellState extends ConsumerState<DashboardShell> {
           _titleForPath(widget.currentPath),
           style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
         ),
-        actions: const [
-          SearchIconButton(),
-          ThemeToggleButton(),
-          SizedBox(width: 4),
+        actions: [
+          IconButton(
+            tooltip: 'Server Connection',
+            icon: const Icon(Icons.dns_outlined, size: 20),
+            onPressed: () => showServerConfigDialog(context),
+          ),
+          const SearchIconButton(),
+          const ThemeToggleButton(),
+          const SizedBox(width: 4),
         ],
       ),
       drawer: Drawer(
@@ -358,6 +364,11 @@ class _Sidebar extends ConsumerWidget {
                         avatar,
                         const SizedBox(height: 6),
                         IconButton(
+                          tooltip: 'Server Connection',
+                          icon: const Icon(Icons.dns_outlined, size: 20),
+                          onPressed: () => showServerConfigDialog(context),
+                        ),
+                        IconButton(
                           tooltip: 'Logout',
                           icon: const Icon(Icons.logout_rounded, size: 20),
                           onPressed: () => ref.read(authControllerProvider.notifier).logout(),
@@ -400,6 +411,11 @@ class _Sidebar extends ConsumerWidget {
                               ),
                             ],
                           ),
+                        ),
+                        IconButton(
+                          tooltip: 'Server Connection',
+                          icon: const Icon(Icons.dns_outlined, size: 20),
+                          onPressed: () => showServerConfigDialog(context),
                         ),
                         IconButton(
                           tooltip: 'Logout',
@@ -602,34 +618,41 @@ class _TopBar extends StatelessWidget implements PreferredSizeWidget {
           ),
           const SizedBox(width: 16),
           // Live Store Connection Pill
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: AppColors.success.withValues(alpha: 0.1),
+          Tooltip(
+            message: 'Server Connection & Endpoint Settings',
+            child: InkWell(
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: AppColors.success.withValues(alpha: 0.3)),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 7,
-                  height: 7,
-                  decoration: const BoxDecoration(
-                    color: AppColors.success,
-                    shape: BoxShape.circle,
-                  ),
+              onTap: () => showServerConfigDialog(context),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: AppColors.success.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: AppColors.success.withValues(alpha: 0.3)),
                 ),
-                const SizedBox(width: 6),
-                const Text(
-                  'Welfog Store Connected',
-                  style: TextStyle(
-                    color: AppColors.success,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 7,
+                      height: 7,
+                      decoration: const BoxDecoration(
+                        color: AppColors.success,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    const Text(
+                      'Welfog Store Connected',
+                      style: TextStyle(
+                        color: AppColors.success,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
           const SizedBox(width: 12),

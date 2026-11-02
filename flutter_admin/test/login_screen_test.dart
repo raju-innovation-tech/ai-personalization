@@ -11,6 +11,7 @@ import 'package:ai_personalization_admin/features/auth/presentation/screens/logi
 class _FakeTokenStorage implements SecureTokenStorage {
   String? _access;
   String? _refresh;
+  String? _serverUrl;
 
   @override
   Future<void> saveTokens({required String accessToken, required String refreshToken}) async {
@@ -23,6 +24,14 @@ class _FakeTokenStorage implements SecureTokenStorage {
 
   @override
   Future<String?> getRefreshToken() async => _refresh;
+
+  @override
+  Future<String?> getServerUrl() async => _serverUrl;
+
+  @override
+  Future<void> saveServerUrl(String url) async {
+    _serverUrl = url;
+  }
 
   @override
   Future<void> clear() async {

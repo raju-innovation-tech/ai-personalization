@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/server_config_dialog.dart';
 import '../providers/auth_controller.dart';
 import '../providers/auth_state.dart';
 
@@ -160,6 +161,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                   style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
                                 ),
                         ),
+                        const SizedBox(height: 16),
+                        Center(
+                          child: TextButton.icon(
+                            style: TextButton.styleFrom(
+                              foregroundColor: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight,
+                            ),
+                            icon: const Icon(Icons.dns_outlined, size: 16),
+                            label: const Text('Server Settings', style: TextStyle(fontSize: 12.5)),
+                            onPressed: () => showServerConfigDialog(context),
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -206,6 +218,12 @@ class _ErrorBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isConnectionError = message.toLowerCase().contains('server') ||
+        message.toLowerCase().contains('connection') ||
+        message.toLowerCase().contains('reach') ||
+        message.toLowerCase().contains('refused') ||
+        message.toLowerCase().contains('failed');
+
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -213,16 +231,38 @@ class _ErrorBanner extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppColors.danger.withValues(alpha: 0.3)),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Icon(Icons.error_outline_rounded, color: AppColors.danger, size: 20),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              message,
-              style: const TextStyle(color: AppColors.danger, fontSize: 13, fontWeight: FontWeight.w500),
-            ),
+          Row(
+            children: [
+              const Icon(Icons.error_outline_rounded, color: AppColors.danger, size: 20),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  message,
+                  style: const TextStyle(color: AppColors.danger, fontSize: 13, fontWeight: FontWeight.w500),
+                ),
+              ),
+            ],
           ),
+          if (isConnectionError) ...[
+            const SizedBox(height: 10),
+            Align(
+              alignment: Alignment.centerRight,
+              child: OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.danger,
+                  side: BorderSide(color: AppColors.danger.withValues(alpha: 0.5)),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  visualDensity: VisualDensity.compact,
+                ),
+                icon: const Icon(Icons.settings_ethernet_rounded, size: 16),
+                label: const Text('Configure Server URL', style: TextStyle(fontSize: 12)),
+                onPressed: () => showServerConfigDialog(context),
+              ),
+            ),
+          ],
         ],
       ),
     );

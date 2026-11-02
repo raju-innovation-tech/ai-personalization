@@ -23,6 +23,10 @@ class SecureTokenStorage {
 
   Future<String?> getRefreshToken() => _storage.read(key: AppConstants.refreshTokenKey);
 
+  Future<void> saveServerUrl(String url) async => _storage.write(key: AppConstants.serverUrlKey, value: url);
+
+  Future<String?> getServerUrl() => _storage.read(key: AppConstants.serverUrlKey);
+
   Future<void> clear() async {
     await _storage.delete(key: AppConstants.accessTokenKey);
     await _storage.delete(key: AppConstants.refreshTokenKey);
