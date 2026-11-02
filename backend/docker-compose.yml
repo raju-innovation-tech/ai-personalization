@@ -1,0 +1,82 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: aip_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: raju
+      POSTGRES_PASSWORD: raju-dev-708433
+      POSTGRES_DB: ai_personalization
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U raju -d ai_personalization"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: aip_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: .
+    container_name: aip_backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - .:/app
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+
+  worker:
+    build: .
+    container_name: aip_worker
+    restart: unless-stopped
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - .:/app
+    command: celery -A app.workers.celery_app worker --loglevel=info
+
+  flower:
+    build: .
+    container_name: aip_flower
+    restart: unless-stopped
+    env_file:
+      - .env
+    depends_on:
+      - redis
+      - worker
+    ports:
+      - "5555:5555"
+    volumes:
+      - .:/app
+    command: celery -A app.workers.celery_app flower --port=5555
+
+volumes:
+  postgres_data:

@@ -1,0 +1,28 @@
+# --- Backend (Python) ---
+backend/.venv/
+backend/__pycache__/
+backend/**/__pycache__/
+backend/.pytest_cache/
+backend/.env
+backend/*.egg-info/
+backend/htmlcov/
+backend/.coverage
+
+# --- Flutter ---
+flutter_admin/.dart_tool/
+flutter_admin/.flutter-plugins
+flutter_admin/.flutter-plugins-dependencies
+flutter_admin/.packages
+flutter_admin/build/
+flutter_admin/ios/Pods/
+flutter_admin/android/.gradle/
+flutter_admin/**/generated_plugin_registrant.dart
+
+# --- OS / Editor ---
+.DS_Store
+.vscode/
+.idea/
+*.iml
+
+# --- Welfog sync state ---
+backend/welfog_sync_state.json

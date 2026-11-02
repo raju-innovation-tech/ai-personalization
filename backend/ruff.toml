@@ -1,0 +1,10 @@
+# Optional linter:  pip install ruff   then   ruff check app scripts tests
+line-length = 120
+target-version = "py312"
+
+[lint]
+select = ["F", "E9", "B"]
+ignore = [
+  "B008",  # FastAPI uses function calls (Depends/Query) in argument defaults by design
+  "B023",  # nested helper functions in scripts/seed_data.py are only called inside their own loop iteration
+]
