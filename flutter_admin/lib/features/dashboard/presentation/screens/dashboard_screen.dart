@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/errors/app_failure.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/formatters.dart';
+import '../../../../core/utils/responsive.dart';
 import '../../../../core/widgets/state_widgets.dart';
 import '../../../segments/presentation/providers/segments_providers.dart';
 import '../../../segments/presentation/widgets/segment_chip.dart';
@@ -25,90 +26,181 @@ class DashboardScreen extends ConsumerWidget {
     final overview = overviewAsync.valueOrNull;
     final segmentsAsync = ref.watch(segmentOverviewProvider);
     final authState = ref.watch(authControllerProvider);
-    final userName = authState is AuthAuthenticated ? authState.user.fullName : '';
+    final userName = authState is AuthAuthenticated ? authState.user.fullName : 'Admin';
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Welcome back, $userName', style: Theme.of(context).textTheme.headlineSmall),
-          const SizedBox(height: 4),
-          Text(
-            'Here is a snapshot of your AI Personalization platform.',
-            style: Theme.of(context).textTheme.bodyMedium,
+          // Modern Hero Welcome Banner
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 20),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: isDark
+                    ? [
+                        const Color(0xFF1E1B4B).withValues(alpha: 0.8),
+                        AppColors.cardDark,
+                      ]
+                    : [
+                        const Color(0xFFEEF2FF),
+                        Colors.white,
+                      ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(
+                color: isDark ? AppColors.primary.withValues(alpha: 0.25) : AppColors.borderLight,
+              ),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text(
+                            'Welcome back, $userName',
+                            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: -0.4,
+                                ),
+                          ),
+                          const SizedBox(width: 8),
+                          const Text('👋', style: TextStyle(fontSize: 20)),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'AI Personalization & Recommendation Engine is active with live Welfog Store data.',
+                        style: TextStyle(
+                          fontSize: 13.5,
+                          color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (!Responsive.isMobile(context))
+                  FilledButton.icon(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    ),
+                    icon: const Icon(Icons.refresh_rounded, size: 18),
+                    label: const Text('Refresh Data'),
+                    onPressed: () {
+                      ref.invalidate(dashboardOverviewProvider);
+                      ref.invalidate(systemHealthProvider);
+                      ref.invalidate(segmentOverviewProvider);
+                    },
+                  ),
+              ],
+            ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
 
+          // System Health & Engine Status
           _SystemStatusBanner(healthAsync: healthAsync),
           const SizedBox(height: 24),
 
+          // Section Header
           Row(
             children: [
-              Expanded(child: Text('Overview', style: Theme.of(context).textTheme.titleLarge)),
-              IconButton(
-                tooltip: 'Refresh',
-                icon: const Icon(Icons.refresh),
-                onPressed: () {
-                  ref.invalidate(dashboardOverviewProvider);
-                  ref.invalidate(systemHealthProvider);
-                },
+              Expanded(
+                child: Text(
+                  'Store Overview & Metrics',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.3,
+                      ),
+                ),
               ),
+              if (Responsive.isMobile(context))
+                IconButton(
+                  tooltip: 'Refresh',
+                  icon: const Icon(Icons.refresh_rounded),
+                  onPressed: () {
+                    ref.invalidate(dashboardOverviewProvider);
+                    ref.invalidate(systemHealthProvider);
+                  },
+                ),
             ],
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 12),
+
           if (overviewAsync.hasError && overview == null)
             Padding(
               padding: const EdgeInsets.only(bottom: 12),
               child: Text(errorMessageOf(overviewAsync.error!), style: Theme.of(context).textTheme.bodyMedium),
             ),
-          // Fixed card height + max card width: a childAspectRatio made the cards
-          // too short on desktop (4 columns) and overflowed their content.
-          GridView(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-              maxCrossAxisExtent: 360,
-              mainAxisExtent: 188,
-              crossAxisSpacing: 16,
-              mainAxisSpacing: 16,
-            ),
-            children: [
-              KpiCard(
-                label: 'Total Customers',
-                value: overview == null ? '—' : formatCount(overview.customers),
-                icon: Icons.people_alt_outlined,
-                subtitle: 'Unique shoppers seen in events',
-              ),
-              KpiCard(
-                label: 'Total Products',
-                value: overview == null ? '—' : formatCount(overview.products),
-                icon: Icons.inventory_2_outlined,
-                accentColor: AppColors.info,
-                subtitle: overview == null ? null : '${formatCount(overview.activeProducts)} active in the catalog',
-              ),
-              KpiCard(
-                label: 'Recommendations Served',
-                value: overview == null ? '—' : formatCount(overview.recommendationsServed),
-                icon: Icons.auto_awesome_outlined,
-                accentColor: AppColors.success,
-                subtitle: overview == null
-                    ? null
-                    : '${formatCount(overview.recommendationsServed7d)} in 7 days  •  CTR ${formatPercent(overview.ctr)}',
-              ),
-              KpiCard(
-                label: 'Offers Served',
-                value: overview == null ? '—' : formatCount(overview.offersImpressions),
-                icon: Icons.local_offer_outlined,
-                accentColor: AppColors.warning,
-                subtitle: overview == null
-                    ? null
-                    : '${formatCount(overview.offersRedemptions)} redeemed  •  ${formatCount(overview.offersActive)} active',
-              ),
-            ],
+
+          // Fully Responsive Adaptive KPI Cards Grid
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final width = constraints.maxWidth;
+              final crossAxisCount = width < 540 ? 1 : (width < 960 ? 2 : 4);
+              final itemHeight = width < 540 ? 142.0 : 160.0;
+              final cardWidth = (width - (crossAxisCount - 1) * 16) / crossAxisCount;
+
+              return GridView.count(
+                crossAxisCount: crossAxisCount,
+                crossAxisSpacing: 16,
+                mainAxisSpacing: 16,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                childAspectRatio: cardWidth / itemHeight,
+                children: [
+                  KpiCard(
+                    label: 'Total Customers',
+                    value: overview == null ? '—' : formatCount(overview.customers),
+                    icon: Icons.people_alt_rounded,
+                    accentColor: AppColors.primary,
+                    subtitle: 'Verified shoppers & registered buyers',
+                  ),
+                  KpiCard(
+                    label: 'Catalogue Products',
+                    value: overview == null ? '—' : formatCount(overview.products),
+                    icon: Icons.inventory_2_rounded,
+                    accentColor: AppColors.info,
+                    subtitle: overview == null ? null : '${formatCount(overview.activeProducts)} in-stock & active',
+                  ),
+                  KpiCard(
+                    label: 'Recommendations',
+                    value: overview == null ? '—' : formatCount(overview.recommendationsServed),
+                    icon: Icons.auto_awesome_rounded,
+                    accentColor: AppColors.success,
+                    subtitle: overview == null
+                        ? null
+                        : '${formatCount(overview.recommendationsServed7d)} served in 7d  •  CTR ${formatPercent(overview.ctr)}',
+                  ),
+                  KpiCard(
+                    label: 'Offers & Coupons',
+                    value: overview == null ? '—' : formatCount(overview.offersImpressions),
+                    icon: Icons.local_offer_rounded,
+                    accentColor: AppColors.warning,
+                    subtitle: overview == null
+                        ? null
+                        : '${formatCount(overview.offersRedemptions)} redeemed  •  ${formatCount(overview.offersActive)} active coupon',
+                  ),
+                ],
+              );
+            },
           ),
           const SizedBox(height: 24),
 
+          // Charts Section
           if (overview != null) _ChartsSection(overview: overview),
+
+          // Customer Segments Progress Bar Card
           segmentsAsync.maybeWhen(
             data: (segments) {
               final shown = segments.segments.where((s) => s.customers > 0).toList();
@@ -116,28 +208,43 @@ class DashboardScreen extends ConsumerWidget {
               return Padding(
                 padding: const EdgeInsets.only(top: 16),
                 child: _ChartCard(
-                  title: 'Customer segments',
-                  subtitle: '${formatCount(segments.totalCustomers)} customers grouped by RFM score - see the Segments page',
+                  title: 'Customer Segments Distribution (RFM)',
+                  subtitle: '${formatCount(segments.totalCustomers)} customers grouped into dynamic behavior clusters',
                   child: Column(
                     children: [
                       for (final s in shown)
                         Padding(
-                          padding: const EdgeInsets.only(bottom: 10),
+                          padding: const EdgeInsets.only(bottom: 12),
                           child: Row(
                             children: [
-                              SizedBox(width: 160, child: Text(s.name, overflow: TextOverflow.ellipsis)),
+                              SizedBox(
+                                width: Responsive.isMobile(context) ? 110 : 160,
+                                child: Text(
+                                  s.name,
+                                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
                               Expanded(
                                 child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(4),
+                                  borderRadius: BorderRadius.circular(6),
                                   child: LinearProgressIndicator(
                                     value: s.share.clamp(0.0, 1.0).toDouble(),
-                                    minHeight: 8,
+                                    minHeight: 10,
                                     backgroundColor: segmentColor(s.key).withValues(alpha: 0.12),
                                     valueColor: AlwaysStoppedAnimation<Color>(segmentColor(s.key)),
                                   ),
                                 ),
                               ),
-                              SizedBox(width: 64, child: Text(formatCount(s.customers), textAlign: TextAlign.right)),
+                              const SizedBox(width: 12),
+                              SizedBox(
+                                width: 50,
+                                child: Text(
+                                  formatCount(s.customers),
+                                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                                  textAlign: TextAlign.right,
+                                ),
+                              ),
                             ],
                           ),
                         ),
@@ -148,7 +255,11 @@ class DashboardScreen extends ConsumerWidget {
             },
             orElse: () => const SizedBox.shrink(),
           ),
-          if (overview == null && overviewAsync.isLoading) const LoadingState(message: 'Loading analytics...'),
+          if (overview == null && overviewAsync.isLoading)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 40),
+              child: LoadingState(message: 'Loading store intelligence...'),
+            ),
         ],
       ),
     );
@@ -165,7 +276,7 @@ class _ChartsSection extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
 
     final activity = _ChartCard(
-      title: 'Customer activity — last 14 days',
+      title: 'Customer Activity — Last 14 Days',
       subtitle: '${formatCount(overview.events7d)} events in the last 7 days  •  '
           '${formatCount(overview.purchases30d)} purchases in 30 days',
       child: DailyBars(data: overview.eventsByDay),
@@ -174,14 +285,14 @@ class _ChartsSection extends StatelessWidget {
     final side = Column(
       children: [
         _ChartCard(
-          title: 'Events by type (30 days)',
+          title: 'Events by Type (30 Days)',
           child: overview.eventsByType.isEmpty
               ? Text('No events yet.', style: textTheme.bodyMedium)
               : RankedBars(items: overview.eventsByType, labelBuilder: humanize),
         ),
         const SizedBox(height: 16),
         _ChartCard(
-          title: 'Top categories (30 days)',
+          title: 'Top Performing Categories',
           child: overview.topCategories.isEmpty
               ? Text('No category activity yet.', style: textTheme.bodyMedium)
               : RankedBars(items: overview.topCategories, color: AppColors.success),
@@ -191,7 +302,7 @@ class _ChartsSection extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        if (constraints.maxWidth >= 900) {
+        if (constraints.maxWidth >= 940) {
           return Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -216,21 +327,37 @@ class _ChartCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color: isDark ? AppColors.borderDark : AppColors.borderLight,
+        ),
+      ),
       child: SizedBox(
         width: double.infinity,
         child: Padding(
-          padding: const EdgeInsets.all(18),
+          padding: const EdgeInsets.all(20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title, style: textTheme.titleMedium),
+              Text(
+                title,
+                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+              ),
               if (subtitle != null) ...[
-                const SizedBox(height: 2),
-                Text(subtitle!, style: textTheme.bodyMedium),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle!,
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight,
+                  ),
+                ),
               ],
-              const SizedBox(height: 16),
+              const SizedBox(height: 18),
               child,
             ],
           ),
@@ -247,20 +374,26 @@ class _SystemStatusBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return healthAsync.when(
-      loading: () => const Card(child: Padding(padding: EdgeInsets.all(16), child: LoadingState(message: 'Checking system health...'))),
+      loading: () => Card(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: const Padding(padding: EdgeInsets.all(16), child: LoadingState(message: 'Checking engine health...')),
+      ),
       error: (err, _) => Card(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        color: AppColors.danger.withValues(alpha: isDark ? 0.15 : 0.08),
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Row(
             children: [
-              const Icon(Icons.error_outline, color: AppColors.danger),
+              const Icon(Icons.error_outline_rounded, color: AppColors.danger),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  'Could not reach the backend at the configured API URL. '
-                  'Check that the server is running and API_BASE_URL is correct.',
-                  style: Theme.of(context).textTheme.bodyMedium,
+                  'Could not reach backend API at configured URL. Check Docker backend container.',
+                  style: TextStyle(color: isDark ? Colors.white : AppColors.danger, fontSize: 13),
                 ),
               ),
             ],
@@ -270,25 +403,56 @@ class _SystemStatusBanner extends StatelessWidget {
       data: (health) {
         final isReady = health.status == 'ready';
         final color = isReady ? AppColors.success : AppColors.warning;
+
         return Card(
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(
+              color: isReady
+                  ? AppColors.success.withValues(alpha: isDark ? 0.25 : 0.35)
+                  : AppColors.warning.withValues(alpha: 0.35),
+            ),
+          ),
+          color: isReady
+              ? AppColors.success.withValues(alpha: isDark ? 0.08 : 0.04)
+              : AppColors.warning.withValues(alpha: isDark ? 0.08 : 0.04),
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Row(
               children: [
-                Icon(isReady ? Icons.check_circle : Icons.warning_amber_rounded, color: color),
-                const SizedBox(width: 12),
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(
+                    isReady ? Icons.check_circle_rounded : Icons.warning_amber_rounded,
+                    color: color,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 14),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        isReady ? 'All systems operational' : 'System degraded',
-                        style: Theme.of(context).textTheme.titleMedium,
+                        isReady ? 'All AI Engine Systems Operational' : 'System Degraded',
+                        style: TextStyle(
+                          color: isDark ? Colors.white : AppColors.textPrimaryLight,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14.5,
+                        ),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         health.checks.entries.map((e) => '${e.key}: ${e.value}').join('  •  '),
-                        style: Theme.of(context).textTheme.bodyMedium,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight,
+                        ),
                       ),
                     ],
                   ),

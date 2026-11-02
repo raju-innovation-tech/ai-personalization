@@ -17,6 +17,21 @@ class Responsive {
   static bool isMobile(BuildContext context) => of(context) == ScreenSize.mobile;
   static bool isTablet(BuildContext context) => of(context) == ScreenSize.tablet;
   static bool isDesktop(BuildContext context) => of(context) == ScreenSize.desktop;
+  static bool isWide(BuildContext context) => MediaQuery.sizeOf(context).width >= AppConstants.desktopBreakpoint;
+
+  /// Adaptive padding based on screen width
+  static EdgeInsets contentPadding(BuildContext context) {
+    if (isMobile(context)) return const EdgeInsets.symmetric(horizontal: 14, vertical: 12);
+    if (isTablet(context)) return const EdgeInsets.all(18);
+    return const EdgeInsets.all(24);
+  }
+
+  /// Adaptive grid column count for cards
+  static int gridColumns(BuildContext context, {int mobile = 1, int tablet = 2, int desktop = 4}) {
+    if (isMobile(context)) return mobile;
+    if (isTablet(context)) return tablet;
+    return desktop;
+  }
 }
 
 /// Builds a different widget per breakpoint. Any omitted breakpoint

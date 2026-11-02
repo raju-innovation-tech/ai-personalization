@@ -236,31 +236,43 @@ class _KpiStrip extends StatelessWidget {
       ('Active (${overview.activeDays}d)', formatCount(overview.activeCustomers)),
     ];
     final textTheme = Theme.of(context).textTheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
-      child: Wrap(
-        spacing: 12,
-        runSpacing: 12,
-        children: [
-          for (final tile in tiles)
-            Container(
-              width: 150,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.06),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(tile.$2, style: textTheme.titleMedium),
-                  const SizedBox(height: 2),
-                  Text(tile.$1, style: textTheme.bodyMedium?.copyWith(fontSize: 12), overflow: TextOverflow.ellipsis),
-                ],
-              ),
-            ),
-        ],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final w = constraints.maxWidth;
+          final cols = w < 440 ? 2 : (w < 720 ? 3 : 6);
+          final tileWidth = (w - (cols - 1) * 12) / cols;
+
+          return Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: [
+              for (final tile in tiles)
+                Container(
+                  width: tileWidth,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: isDark ? AppColors.cardDarkElevated : AppColors.primary.withValues(alpha: 0.05),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isDark ? AppColors.borderDark : AppColors.primary.withValues(alpha: 0.1),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(tile.$2, style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700), maxLines: 1, overflow: TextOverflow.ellipsis),
+                      const SizedBox(height: 2),
+                      Text(tile.$1, style: textTheme.bodyMedium?.copyWith(fontSize: 12), overflow: TextOverflow.ellipsis),
+                    ],
+                  ),
+                ),
+            ],
+          );
+        },
       ),
     );
   }
