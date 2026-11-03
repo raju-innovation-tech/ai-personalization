@@ -6,6 +6,7 @@ import '../../../../core/constants/app_constants.dart';
 import '../../../../core/errors/app_failure.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/formatters.dart';
+import '../../../../core/widgets/adaptive_grid.dart';
 import '../../../../core/widgets/state_widgets.dart';
 import '../../domain/integration_status.dart';
 import '../providers/integrations_providers.dart';
@@ -158,13 +159,12 @@ class _Body extends StatelessWidget {
             children: [
               Text('Data health', style: textTheme.titleMedium),
               const SizedBox(height: 12),
-              Wrap(
-                spacing: 12,
-                runSpacing: 12,
+              AdaptiveGrid(
+                itemMinWidth: 160,
                 children: [
                   for (final tile in tiles)
                     Container(
-                      width: 210,
+                      width: double.infinity,
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
                         color: AppColors.primary.withValues(alpha: 0.06),

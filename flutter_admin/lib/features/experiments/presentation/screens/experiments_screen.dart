@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/errors/app_failure.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/formatters.dart';
+import '../../../../core/widgets/adaptive_grid.dart';
 import '../../../../core/widgets/state_widgets.dart';
 import '../../domain/experiment.dart';
 import '../providers/experiments_providers.dart';
@@ -183,13 +184,12 @@ class _StatsStrip extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
-      child: Wrap(
-        spacing: 12,
-        runSpacing: 12,
+      child: AdaptiveGrid(
+        itemMinWidth: 150,
         children: [
           for (final tile in tiles)
             Container(
-              width: 170,
+              width: double.infinity,
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.06), borderRadius: BorderRadius.circular(10)),
               child: Column(

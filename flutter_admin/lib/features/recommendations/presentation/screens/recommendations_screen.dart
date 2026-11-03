@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/errors/app_failure.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/formatters.dart';
+import '../../../../core/widgets/adaptive_grid.dart';
 import '../../../../core/widgets/state_widgets.dart';
 import '../../domain/recommendation.dart';
 import '../providers/recommendations_providers.dart';
@@ -163,25 +164,33 @@ class _RecommendationsScreenState extends ConsumerState<RecommendationsScreen> {
                     ],
                   ),
                   const SizedBox(height: 14),
-                  Wrap(
-                    spacing: 12,
-                    runSpacing: 12,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      SizedBox(
-                        width: 280,
-                        child: TextField(
-                          controller: _input,
-                          onSubmitted: (_) => _run(),
-                          decoration: InputDecoration(labelText: _mode.inputLabel, isDense: true),
-                        ),
-                      ),
-                      FilledButton.icon(
-                        onPressed: _run,
-                        icon: const Icon(Icons.play_arrow_rounded, size: 20),
-                        label: const Text('Get recommendations'),
-                      ),
-                    ],
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final isSmall = constraints.maxWidth < 420;
+                      return Wrap(
+                        spacing: 12,
+                        runSpacing: 12,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          SizedBox(
+                            width: isSmall ? constraints.maxWidth : 280,
+                            child: TextField(
+                              controller: _input,
+                              onSubmitted: (_) => _run(),
+                              decoration: InputDecoration(labelText: _mode.inputLabel, isDense: true),
+                            ),
+                          ),
+                          SizedBox(
+                            width: isSmall ? constraints.maxWidth : null,
+                            child: FilledButton.icon(
+                              onPressed: _run,
+                              icon: const Icon(Icons.play_arrow_rounded, size: 20),
+                              label: const Text('Get recommendations'),
+                            ),
+                          ),
+                        ],
+                      );
+                    },
                   ),
                   const SizedBox(height: 16),
                   _ResultView(future: _future),
@@ -239,9 +248,7 @@ class _StatusCard extends StatelessWidget {
                 style: textTheme.bodyMedium,
               ),
               const SizedBox(height: 14),
-              Wrap(
-                spacing: 12,
-                runSpacing: 12,
+              AdaptiveGrid(
                 children: [
                   _Stat('Products', formatCount(status.products)),
                   _Stat('Customers with history', formatCount(status.customersWithHistory)),
@@ -285,17 +292,22 @@ class _Stat extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
-      width: 150,
-      padding: const EdgeInsets.all(12),
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: AppColors.primary.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(10),
+        color: isDark ? AppColors.cardDarkElevated : AppColors.primary.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isDark ? AppColors.borderDark : AppColors.primary.withValues(alpha: 0.1),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(value, style: textTheme.titleMedium),
+          Text(value, style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
           const SizedBox(height: 2),
           Text(label, style: textTheme.bodyMedium?.copyWith(fontSize: 12), maxLines: 2, overflow: TextOverflow.ellipsis),
         ],

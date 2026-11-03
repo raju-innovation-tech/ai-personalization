@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import '../../../../core/errors/app_failure.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/formatters.dart';
+import '../../../../core/widgets/adaptive_grid.dart';
 import '../../../../core/widgets/state_widgets.dart';
 import '../../../dashboard/presentation/providers/dashboard_providers.dart';
 import '../../domain/offer.dart';
@@ -227,13 +228,12 @@ class _TotalsStrip extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
-      child: Wrap(
-        spacing: 12,
-        runSpacing: 12,
+      child: AdaptiveGrid(
+        itemMinWidth: 140,
         children: [
           for (final tile in tiles)
             Container(
-              width: 160,
+              width: double.infinity,
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: AppColors.primary.withValues(alpha: 0.06),
@@ -499,40 +499,49 @@ class _PlaygroundState extends ConsumerState<_Playground> {
           title: Text('Try it: offers for a customer', style: textTheme.titleMedium),
           subtitle: Text('Run the storefront API and see why each offer is shown.', style: textTheme.bodyMedium),
           children: [
-            Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                SizedBox(
-                  width: 200,
-                  child: TextField(
-                    controller: _user,
-                    onSubmitted: (_) => _run(),
-                    decoration: const InputDecoration(labelText: 'Customer ID', isDense: true),
-                  ),
-                ),
-                SizedBox(
-                  width: 180,
-                  child: TextField(
-                    controller: _category,
-                    decoration: const InputDecoration(labelText: 'Browsing category', hintText: 'optional', isDense: true),
-                  ),
-                ),
-                SizedBox(
-                  width: 150,
-                  child: TextField(
-                    controller: _cart,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    decoration: const InputDecoration(labelText: 'Cart value', hintText: 'optional', isDense: true),
-                  ),
-                ),
-                FilledButton.icon(
-                  onPressed: _run,
-                  icon: const Icon(Icons.play_arrow_rounded, size: 20),
-                  label: const Text('Get offers'),
-                ),
-              ],
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final isSmall = constraints.maxWidth < 600;
+                final fieldWidth = isSmall ? constraints.maxWidth : null;
+                return Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    SizedBox(
+                      width: isSmall ? fieldWidth : 200,
+                      child: TextField(
+                        controller: _user,
+                        onSubmitted: (_) => _run(),
+                        decoration: const InputDecoration(labelText: 'Customer ID', isDense: true),
+                      ),
+                    ),
+                    SizedBox(
+                      width: isSmall ? fieldWidth : 180,
+                      child: TextField(
+                        controller: _category,
+                        decoration: const InputDecoration(labelText: 'Browsing category', hintText: 'optional', isDense: true),
+                      ),
+                    ),
+                    SizedBox(
+                      width: isSmall ? fieldWidth : 150,
+                      child: TextField(
+                        controller: _cart,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        decoration: const InputDecoration(labelText: 'Cart value', hintText: 'optional', isDense: true),
+                      ),
+                    ),
+                    SizedBox(
+                      width: isSmall ? fieldWidth : null,
+                      child: FilledButton.icon(
+                        onPressed: _run,
+                        icon: const Icon(Icons.play_arrow_rounded, size: 20),
+                        label: const Text('Get offers'),
+                      ),
+                    ),
+                  ],
+                );
+              },
             ),
             const SizedBox(height: 12),
             if (_future == null)

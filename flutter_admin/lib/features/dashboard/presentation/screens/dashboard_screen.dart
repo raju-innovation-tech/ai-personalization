@@ -17,11 +17,64 @@ import '../providers/dashboard_providers.dart';
 import '../widgets/charts.dart';
 import '../widgets/kpi_card.dart';
 
-class DashboardScreen extends ConsumerWidget {
+class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends ConsumerState<DashboardScreen> {
+  bool _isRefreshing = false;
+
+  Future<void> _handleRefresh() async {
+    if (_isRefreshing) return;
+    setState(() => _isRefreshing = true);
+
+    try {
+      await Future.wait([
+        ref.refresh(dashboardOverviewProvider.future),
+        ref.refresh(systemHealthProvider.future),
+        ref.refresh(segmentOverviewProvider.future),
+      ]);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).clearSnackBars();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.check_circle_rounded, color: Colors.white, size: 18),
+                SizedBox(width: 8),
+                Text('Dashboard data refreshed successfully!'),
+              ],
+            ),
+            backgroundColor: AppColors.success,
+            duration: Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).clearSnackBars();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to refresh data: $e'),
+            backgroundColor: AppColors.danger,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isRefreshing = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final healthAsync = ref.watch(systemHealthProvider);
     final overviewAsync = ref.watch(dashboardOverviewProvider);
     final overview = overviewAsync.valueOrNull;
@@ -30,116 +83,123 @@ class DashboardScreen extends ConsumerWidget {
     final userName = authState is AuthAuthenticated ? authState.user.fullName : 'Admin';
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return SingleChildScrollView(
-      physics: const BouncingScrollPhysics(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Modern Hero Welcome Banner
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 20),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: isDark
-                    ? [
-                        const Color(0xFF1E1B4B).withValues(alpha: 0.8),
-                        AppColors.cardDark,
-                      ]
-                    : [
-                        const Color(0xFFEEF2FF),
-                        Colors.white,
-                      ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+    return RefreshIndicator(
+      onRefresh: _handleRefresh,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Modern Hero Welcome Banner
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 20),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: isDark
+                      ? [
+                          const Color(0xFF1E1B4B).withValues(alpha: 0.8),
+                          AppColors.cardDark,
+                        ]
+                      : [
+                          const Color(0xFFEEF2FF),
+                          Colors.white,
+                        ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(
+                  color: isDark ? AppColors.primary.withValues(alpha: 0.25) : AppColors.borderLight,
+                ),
               ),
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(
-                color: isDark ? AppColors.primary.withValues(alpha: 0.25) : AppColors.borderLight,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Wrap(
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          spacing: 8,
+                          children: [
+                            Text(
+                              'Welcome back, $userName',
+                              style: (Responsive.isMobile(context)
+                                      ? Theme.of(context).textTheme.titleLarge
+                                      : Theme.of(context).textTheme.headlineSmall)
+                                  ?.copyWith(
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: -0.4,
+                              ),
+                            ),
+                            const Text('👋', style: TextStyle(fontSize: 20)),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'AI Personalization & Recommendation Engine is active with live Welfog Store data.',
+                          style: TextStyle(
+                            fontSize: 13.5,
+                            color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (!Responsive.isMobile(context))
+                    FilledButton.icon(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      ),
+                      icon: _isRefreshing
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            )
+                          : const Icon(Icons.refresh_rounded, size: 18),
+                      label: Text(_isRefreshing ? 'Refreshing...' : 'Refresh Data'),
+                      onPressed: _isRefreshing ? null : _handleRefresh,
+                    ),
+                ],
               ),
             ),
-            child: Row(
+            const SizedBox(height: 20),
+
+            // System Health & Engine Status
+            _SystemStatusBanner(healthAsync: healthAsync),
+            const SizedBox(height: 24),
+
+            // Section Header
+            Row(
               children: [
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Wrap(
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        spacing: 8,
-                        children: [
-                          Text(
-                            'Welcome back, $userName',
-                            style: (Responsive.isMobile(context)
-                                    ? Theme.of(context).textTheme.titleLarge
-                                    : Theme.of(context).textTheme.headlineSmall)
-                                ?.copyWith(
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: -0.4,
-                            ),
-                          ),
-                          const Text('👋', style: TextStyle(fontSize: 20)),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'AI Personalization & Recommendation Engine is active with live Welfog Store data.',
-                        style: TextStyle(
-                          fontSize: 13.5,
-                          color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight,
-                          fontWeight: FontWeight.w500,
+                  child: Text(
+                    'Store Overview & Metrics',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.3,
                         ),
-                      ),
-                    ],
                   ),
                 ),
-                if (!Responsive.isMobile(context))
-                  FilledButton.icon(
-                    style: FilledButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    ),
-                    icon: const Icon(Icons.refresh_rounded, size: 18),
-                    label: const Text('Refresh Data'),
-                    onPressed: () {
-                      ref.invalidate(dashboardOverviewProvider);
-                      ref.invalidate(systemHealthProvider);
-                      ref.invalidate(segmentOverviewProvider);
-                    },
+                if (Responsive.isMobile(context))
+                  IconButton(
+                    tooltip: 'Refresh Dashboard',
+                    icon: _isRefreshing
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.refresh_rounded),
+                    onPressed: _isRefreshing ? null : _handleRefresh,
                   ),
               ],
             ),
-          ),
-          const SizedBox(height: 20),
-
-          // System Health & Engine Status
-          _SystemStatusBanner(healthAsync: healthAsync),
-          const SizedBox(height: 24),
-
-          // Section Header
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'Store Overview & Metrics',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.3,
-                      ),
-                ),
-              ),
-              if (Responsive.isMobile(context))
-                IconButton(
-                  tooltip: 'Refresh',
-                  icon: const Icon(Icons.refresh_rounded),
-                  onPressed: () {
-                    ref.invalidate(dashboardOverviewProvider);
-                    ref.invalidate(systemHealthProvider);
-                  },
-                ),
-            ],
-          ),
           const SizedBox(height: 12),
 
           if (overviewAsync.hasError && overview == null)
@@ -274,7 +334,8 @@ class DashboardScreen extends ConsumerWidget {
             ),
         ],
       ),
-    );
+    ),
+  );
   }
 }
 

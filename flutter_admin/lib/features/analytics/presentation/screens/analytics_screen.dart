@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/errors/app_failure.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/formatters.dart';
+import '../../../../core/widgets/adaptive_grid.dart';
 import '../../../../core/widgets/state_widgets.dart';
 import '../../domain/report.dart';
 import '../providers/analytics_providers.dart';
@@ -297,9 +298,8 @@ class _ReportBody extends StatelessWidget {
     final marketing = _Section(
       title: 'Recommendations and offers',
       subtitle: 'In this period',
-      child: Wrap(
-        spacing: 12,
-        runSpacing: 12,
+      child: AdaptiveGrid(
+        itemMinWidth: 140,
         children: [
           _MiniStat('Recommendation requests', formatCount(sumRecs)),
           _MiniStat('Recommendation CTR', formatPercent(recViews == 0 ? null : recClicks / recViews)),
@@ -314,9 +314,8 @@ class _ReportBody extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Wrap(
-          spacing: 12,
-          runSpacing: 12,
+        AdaptiveGrid(
+          itemMinWidth: 150,
           children: [
             for (final tile in kpiTiles) _KpiTile(label: tile.$1, kpi: tile.$2, format: tile.$3, days: report.days),
           ],
@@ -420,7 +419,7 @@ class _KpiTile extends StatelessWidget {
         : (change > 0 ? Icons.arrow_upward : Icons.arrow_downward);
 
     return Container(
-      width: 200,
+      width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: AppColors.primary.withValues(alpha: 0.06),
@@ -462,7 +461,7 @@ class _MiniStat extends StatelessWidget {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     return Container(
-      width: 160,
+      width: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: AppColors.primary.withValues(alpha: 0.06),
