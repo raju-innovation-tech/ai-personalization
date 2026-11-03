@@ -11,54 +11,113 @@ import '../../domain/system.dart';
 import '../providers/system_providers.dart';
 import '../widgets/alerts_button.dart';
 
-class SystemScreen extends ConsumerWidget {
+class SystemScreen extends ConsumerStatefulWidget {
   const SystemScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SystemScreen> createState() => _SystemScreenState();
+}
+
+class _SystemScreenState extends ConsumerState<SystemScreen> {
+  bool _isRefreshing = false;
+
+  Future<void> _handleRefresh() async {
+    if (_isRefreshing) return;
+    setState(() => _isRefreshing = true);
+
+    try {
+      await Future.wait([
+        ref.refresh(systemStatusProvider.future),
+      ]);
+      ref.invalidate(systemAlertsProvider);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).clearSnackBars();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.check_circle_rounded, color: Colors.white, size: 18),
+                SizedBox(width: 8),
+                Text('System status refreshed successfully!'),
+              ],
+            ),
+            backgroundColor: AppColors.success,
+            duration: Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).clearSnackBars();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to refresh system status: $e'),
+            backgroundColor: AppColors.danger,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isRefreshing = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     final statusAsync = ref.watch(systemStatusProvider);
     final alertsAsync = ref.watch(systemAlertsProvider);
 
-    return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('System', style: textTheme.headlineSmall),
-                    const SizedBox(height: 4),
-                    Text('Health of the API, database, cache and background jobs.', style: textTheme.bodyMedium),
-                  ],
+    return RefreshIndicator(
+      onRefresh: _handleRefresh,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('System', style: textTheme.headlineSmall),
+                      const SizedBox(height: 4),
+                      Text('Health of the API, database, cache and background jobs.', style: textTheme.bodyMedium),
+                    ],
+                  ),
                 ),
-              ),
-              IconButton(
-                tooltip: 'Refresh',
-                icon: const Icon(Icons.refresh),
-                onPressed: () {
-                  ref.invalidate(systemStatusProvider);
-                  ref.invalidate(systemAlertsProvider);
-                },
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          _AlertsCard(alertsAsync: alertsAsync),
-          const SizedBox(height: 16),
-          statusAsync.when(
-            loading: () => const Padding(padding: EdgeInsets.all(32), child: LoadingState(message: 'Checking system...')),
-            error: (error, _) => ErrorState(
-              message: errorMessageOf(error),
-              onRetry: () => ref.invalidate(systemStatusProvider),
+                IconButton(
+                  tooltip: 'Refresh',
+                  icon: _isRefreshing
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.refresh_rounded),
+                  onPressed: _isRefreshing ? null : _handleRefresh,
+                ),
+              ],
             ),
-            data: (status) => _StatusBody(status: status),
-          ),
-        ],
+            const SizedBox(height: 16),
+            _AlertsCard(alertsAsync: alertsAsync),
+            const SizedBox(height: 16),
+            statusAsync.when(
+              loading: () => const Padding(padding: EdgeInsets.all(32), child: LoadingState(message: 'Checking system...')),
+              error: (error, _) => ErrorState(
+                message: errorMessageOf(error),
+                onRetry: () => ref.invalidate(systemStatusProvider),
+              ),
+              data: (status) => _StatusBody(status: status),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -44,9 +44,27 @@ class Settings(BaseSettings):
     DB_POOL_SIZE: int = 10
     DB_MAX_OVERFLOW: int = 20
 
+    @field_validator("DATABASE_URL", "DATABASE_URL_SYNC", mode="before")
+    @classmethod
+    def adjust_db_host(cls, v: str) -> str:
+        if isinstance(v, str) and "@postgres:" in v:
+            import os
+            if not os.path.exists("/.dockerenv") and not os.environ.get("RUNNING_IN_DOCKER"):
+                return v.replace("@postgres:", "@localhost:")
+        return v
+
     # --- Redis ---
     REDIS_URL: str = "redis://localhost:6379/0"
     REDIS_CACHE_TTL_SECONDS: int = 900
+
+    @field_validator("REDIS_URL", mode="before")
+    @classmethod
+    def adjust_redis_host(cls, v: str) -> str:
+        if isinstance(v, str) and "redis://redis:" in v:
+            import os
+            if not os.path.exists("/.dockerenv") and not os.environ.get("RUNNING_IN_DOCKER"):
+                return v.replace("redis://redis:", "redis://localhost:")
+        return v
 
     # --- Celery ---
     CELERY_BROKER_URL: str = "redis://localhost:6379/1"

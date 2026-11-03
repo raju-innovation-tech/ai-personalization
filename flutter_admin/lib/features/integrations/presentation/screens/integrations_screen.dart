@@ -46,50 +46,108 @@ curl -X POST {BASE}/offers/redeem -H "Authorization: Bearer TOKEN" -H "Content-T
   ),
 ];
 
-class IntegrationsScreen extends ConsumerWidget {
+class IntegrationsScreen extends ConsumerStatefulWidget {
   const IntegrationsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<IntegrationsScreen> createState() => _IntegrationsScreenState();
+}
+
+class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen> {
+  bool _isRefreshing = false;
+
+  Future<void> _handleRefresh() async {
+    if (_isRefreshing) return;
+    setState(() => _isRefreshing = true);
+
+    try {
+      await ref.refresh(integrationStatusProvider.future);
+      if (mounted) {
+        ScaffoldMessenger.of(context).clearSnackBars();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.check_circle_rounded, color: Colors.white, size: 18),
+                SizedBox(width: 8),
+                Text('Integrations status refreshed successfully!'),
+              ],
+            ),
+            backgroundColor: AppColors.success,
+            duration: Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).clearSnackBars();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to refresh integrations: $e'),
+            backgroundColor: AppColors.danger,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isRefreshing = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     final statusAsync = ref.watch(integrationStatusProvider);
 
-    return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Integrations', style: textTheme.headlineSmall),
-                    const SizedBox(height: 4),
-                    Text('Connect your shop and check that the data it sends is healthy.', style: textTheme.bodyMedium),
-                  ],
+    return RefreshIndicator(
+      onRefresh: _handleRefresh,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Integrations', style: textTheme.headlineSmall),
+                      const SizedBox(height: 4),
+                      Text('Connect your shop and check that the data it sends is healthy.', style: textTheme.bodyMedium),
+                    ],
+                  ),
                 ),
-              ),
-              IconButton(
-                tooltip: 'Refresh',
-                icon: const Icon(Icons.refresh),
-                onPressed: () => ref.invalidate(integrationStatusProvider),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          statusAsync.when(
-            loading: () => const Padding(padding: EdgeInsets.all(32), child: LoadingState(message: 'Checking integration...')),
-            error: (error, _) => ErrorState(
-              message: errorMessageOf(error),
-              onRetry: () => ref.invalidate(integrationStatusProvider),
+                IconButton(
+                  tooltip: 'Refresh',
+                  icon: _isRefreshing
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.refresh_rounded),
+                  onPressed: _isRefreshing ? null : _handleRefresh,
+                ),
+              ],
             ),
-            data: (status) => _Body(status: status),
-          ),
-          const SizedBox(height: 16),
-          const _SnippetsCard(),
-        ],
+            const SizedBox(height: 16),
+            statusAsync.when(
+              loading: () => const Padding(padding: EdgeInsets.all(32), child: LoadingState(message: 'Checking integration...')),
+              error: (error, _) => ErrorState(
+                message: errorMessageOf(error),
+                onRetry: () => ref.invalidate(integrationStatusProvider),
+              ),
+              data: (status) => _Body(status: status),
+            ),
+            const SizedBox(height: 16),
+            const _SnippetsCard(),
+          ],
+        ),
       ),
     );
   }

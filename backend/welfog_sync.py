@@ -24,34 +24,34 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# ─── CONFIG ───────────────────────────────────────────────
-# PostgreSQL (products) - supports both WELFOG_PG_* and POSTGRES_* env vars
+# ─── CONFIG (Purely loaded from .env - No hardcoded secrets) ─────────
+# PostgreSQL Configuration (.env: POSTGRES_*)
 PG = dict(
-    host     = os.getenv("POSTGRES_HOST") ,
-    port     = os.getenv("POSTGRES_PORT") ,
-    database = os.getenv("POSTGRES_DB") ,
-    user     = os.getenv("POSTGRES_USER"),
-    password = (os.getenv("POSTGRES_PASSWORD"))
+    host     = os.getenv("POSTGRES_HOST", "localhost"),
+    port     = int(os.getenv("POSTGRES_PORT", 5433)),
+    database = os.getenv("POSTGRES_DB", "welfog_product"),
+    user     = os.getenv("POSTGRES_USER", ""),
+    password = (os.getenv("POSTGRES_PASSWORD", "")).strip(),
 )
 
-# MySQL (orders, wishlists, reviews) - supports both WELFOG_MYSQL_* and DB_* env vars
+# MySQL Configuration (.env: DB_*)
 MY = dict(
-    host     = os.getenv("DB_HOST") ,
-    port     = os.getenv("DB_PORT"),
-    db       = os.getenv("DB_NAME") ,
-    user     = os.getenv("DB_USER"),
-    password = (os.getenv("DB_PASSWORD")) ,
+    host     = os.getenv("DB_HOST", "localhost"),
+    port     = int(os.getenv("DB_PORT", 3306)),
+    db       = os.getenv("DB_NAME", "welfog_db"),
+    user     = os.getenv("DB_USER", ""),
+    password = (os.getenv("DB_PASSWORD", "")).strip(),
     charset  = "utf8mb4",
     autocommit = True,
 )
 
-
-AI_URL   = os.getenv("AI_BASE_URL")
-AI_EMAIL = os.getenv("AI_ENGINE_EMAIL")
-AI_PASSWORD = os.getenv("AI_ENGINE_PASSWORD")
-_raw_token = os.getenv("AI_SERVICE_TOKEN", "")
-AI_TOKEN = _raw_token.removeprefix("AI_SERVICE_TOKEN=").strip() if _raw_token else ""
-BATCH    = 200
+# AI Engine API Configuration (.env: AI_ENGINE_*)
+AI_URL      = (os.getenv("AI_ENGINE_URL") or os.getenv("AI_BASE_URL", "http://localhost:8000/api/v1")).rstrip("/")
+AI_EMAIL    = os.getenv("AI_ENGINE_EMAIL", "")
+AI_PASSWORD = os.getenv("AI_ENGINE_PASSWORD", "")
+_raw_token  = os.getenv("AI_SERVICE_TOKEN", "")
+AI_TOKEN    = _raw_token.removeprefix("AI_SERVICE_TOKEN=").strip() if _raw_token else ""
+BATCH       = 200
 
 # ─── HELPERS ──────────────────────────────────────────────
 def _ikey(*parts) -> str:
@@ -283,37 +283,45 @@ async def sync_reviews(my, http):
 
 # ─── MAIN ─────────────────────────────────────────────────
 async def main():
-    print("=" * 55)
-    print("🚀  Welfog → AI Personalization Sync")
-    print(f"    AI URL : {AI_URL}")
-    print(f"    Samay  : {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print("=" * 55)
+    print("=" * 55, flush=True)
+    print("🚀  Welfog → AI Personalization Sync", flush=True)
+    print(f"    AI URL : {AI_URL}", flush=True)
+    print(f"    Samay  : {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", flush=True)
+    print("=" * 55, flush=True)
 
-    print("\n🔌 PostgreSQL se connect ho raha hai...")
+    print("\n🔌 PostgreSQL se connect ho raha hai...", flush=True)
+    if not PG["user"] or not PG["password"]:
+        print("   ❌ PostgreSQL fail: POSTGRES_USER or POSTGRES_PASSWORD missing in .env!", flush=True)
+        return
     try:
-        pg = await asyncpg.connect(**PG)
-        print("   ✅ PostgreSQL connected!")
+        pg = await asyncpg.connect(**PG, timeout=10)
+        print("   ✅ PostgreSQL connected!", flush=True)
     except Exception as e:
-        print(f"   ❌ PostgreSQL fail: {e}")
+        print(f"   ❌ PostgreSQL fail: {e}", flush=True)
         return
 
-    print("🔌 MySQL se connect ho raha hai...")
+    print("🔌 MySQL se connect ho raha hai...", flush=True)
+    if not MY["user"]:
+        print("   ❌ MySQL fail: DB_USER missing in .env!", flush=True)
+        await pg.close()
+        return
     try:
-        my = await aiomysql.connect(**MY)
-        print("   ✅ MySQL connected!")
+        my = await aiomysql.connect(**MY, connect_timeout=10)
+        print("   ✅ MySQL connected!", flush=True)
     except Exception as e:
-        print(f"   ❌ MySQL fail: {e}")
+        print(f"   ❌ MySQL fail: {e}", flush=True)
         await pg.close()
         return
 
-    print(f"🔌 AI backend check ho raha hai ({AI_URL})...")
+    print(f"🔌 AI backend check ho raha hai ({AI_URL})...", flush=True)
     async with httpx.AsyncClient() as http:
         try:
             r = await http.get(f"{AI_URL}/health", timeout=5)
-            print("   ✅ AI backend chal raha hai!")
+            print("   ✅ AI backend chal raha hai!", flush=True)
         except Exception:
-            print(f"   ❌ AI backend nahi mila!")
-            await pg.close(); my.close()
+            print(f"   ❌ AI backend nahi mila! Make sure backend is running on {AI_URL}", flush=True)
+            await pg.close()
+            my.close()
             return
 
         await sync_products(pg, http)
