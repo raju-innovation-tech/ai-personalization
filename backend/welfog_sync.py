@@ -25,30 +25,34 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # ─── CONFIG ───────────────────────────────────────────────
-# Bhai ka PostgreSQL (products)
+# PostgreSQL (products) - supports both WELFOG_PG_* and POSTGRES_* env vars
 PG = dict(
-    host     = os.getenv("WELFOG_PG_HOST","localhost"),
-    port     = int(os.getenv("WELFOG_PG_PORT","5433")),
-    database = os.getenv("WELFOG_PG_DB","welfog_product"),
-    user     = os.getenv("WELFOG_PG_USER","welfog_user"),
-    password = os.getenv("WELFOG_PG_PASS",'Techno$"ad"708433insVIKRANT'),
+    host     = os.getenv("POSTGRES_HOST") ,
+    port     = os.getenv("POSTGRES_PORT") ,
+    database = os.getenv("POSTGRES_DB") ,
+    user     = os.getenv("POSTGRES_USER"),
+    password = (os.getenv("POSTGRES_PASSWORD"))
 )
 
-# Bhai ka MySQL (orders, wishlists, reviews)
+# MySQL (orders, wishlists, reviews) - supports both WELFOG_MYSQL_* and DB_* env vars
 MY = dict(
-    host     = os.getenv("WELFOG_MYSQL_HOST","localhost"),
-    port     = int(os.getenv("WELFOG_MYSQL_PORT","3306")),
-    db       = os.getenv("WELFOG_MYSQL_DB","welfog_db"),
-    user     = os.getenv("WELFOG_MYSQL_USER","root"),
-    password = os.getenv("WELFOG_MYSQL_PASS","welfog123!@#"),
+    host     = os.getenv("DB_HOST") ,
+    port     = os.getenv("DB_PORT"),
+    db       = os.getenv("DB_NAME") ,
+    user     = os.getenv("DB_USER"),
+    password = (os.getenv("DB_PASSWORD")) ,
     charset  = "utf8mb4",
     autocommit = True,
 )
 
 
-AI_URL   = os.getenv("AI_BASE_URL","http://localhost:8000/api/v1")
-AI_TOKEN = os.getenv("AI_SERVICE_TOKEN","AI_SERVICE_TOKEN=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIwYTZiM2Q1NS0yNjBlLTRhY2MtYWYzOS00MmYxYTc0OWRjYWYiLCJ0eXBlIjoiYWNjZXNzIiwiaWF0IjoxNzkzNjE2NjI1LCJleHAiOjE3OTM2MTg0MjUsImp0aSI6IjU2ODc5ODBkLTRmMDYtNGYzNC04M2JiLTA4NmNkYWNkNWRiMyIsInJvbGUiOiJTVVBFUl9BRE1JTiJ9.tg5W4SSHb_t6uOQb0N0n5XSQsFuE3cBkIn8SHaPHMeg")
+AI_URL   = os.getenv("AI_BASE_URL")
+AI_EMAIL = os.getenv("AI_ENGINE_EMAIL")
+AI_PASSWORD = os.getenv("AI_ENGINE_PASSWORD")
+_raw_token = os.getenv("AI_SERVICE_TOKEN", "")
+AI_TOKEN = _raw_token.removeprefix("AI_SERVICE_TOKEN=").strip() if _raw_token else ""
 BATCH    = 200
+
 # ─── HELPERS ──────────────────────────────────────────────
 def _ikey(*parts) -> str:
     return hashlib.md5("_".join(str(p) for p in parts).encode()).hexdigest()
@@ -62,17 +66,45 @@ def _dt(val) -> str:
         return val.isoformat()
     return str(val)
 
-async def _post(http, path, body, label) -> bool:
-    headers = {"Authorization": f"Bearer {AI_TOKEN}"} if AI_TOKEN else {}
+async def _ensure_token(http: httpx.AsyncClient) -> str:
+    global AI_TOKEN
+    if AI_TOKEN:
+        return AI_TOKEN
     try:
-        r = await http.post(f"{AI_URL}{path}", json=body, headers=headers, timeout=30)
-        if r.status_code in (200, 201):
-            return True
-        print(f"  ⚠ {label} → HTTP {r.status_code}: {r.text[:120]}")
-        return False
-    except Exception as e:
-        print(f"  ✗ {label} → {e}")
-        return False
+        r = await http.post(f"{AI_URL}/auth/login", json={"email": AI_EMAIL, "password": AI_PASSWORD}, timeout=10)
+        if r.status_code == 200:
+            AI_TOKEN = r.json().get("data", {}).get("access_token", "")
+            print("   🔑 AI Engine token acquired automatically!")
+            return AI_TOKEN
+    except Exception as exc:  # noqa: BLE001
+        print(f"   ⚠ Auto-login attempt failed: {exc}")
+    return ""
+
+async def _post(http, path, body, label) -> bool:
+    global AI_TOKEN
+    for attempt in range(2):
+        if not AI_TOKEN and path.startswith("/products"):
+            await _ensure_token(http)
+        headers = {}
+        if AI_TOKEN:
+            headers["Authorization"] = f"Bearer {AI_TOKEN}"
+        storefront_key = os.getenv("STOREFRONT_API_KEY")
+        if storefront_key:
+            headers["X-API-Key"] = storefront_key
+        try:
+            r = await http.post(f"{AI_URL}{path}", json=body, headers=headers, timeout=60)
+            if r.status_code in (200, 201):
+                return True
+            if r.status_code == 401 and attempt == 0:
+                AI_TOKEN = ""
+                await _ensure_token(http)
+                continue
+            print(f"  ⚠ {label} → HTTP {r.status_code}: {r.text[:120]}")
+            return False
+        except Exception as e:
+            print(f"  ✗ {label} → {e}")
+            return False
+    return False
 
 async def _send_events(http, events, label):
     if not events:

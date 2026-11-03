@@ -157,7 +157,27 @@ def main(argv: list[str] | None = None) -> int:
     opts = build_options()
     state = StateStore(_env("WELFOG_SYNC_STATE", "welfog_sync_state.json"))
     engines: dict[str, object] = {}
-    urls = {"mysql": _env("WELFOG_MYSQL_URL"), "postgres": _env("WELFOG_PG_URL")}
+
+    import urllib.parse
+    mysql_url = _env("WELFOG_MYSQL_URL")
+    if not mysql_url and _env("DB_HOST"):
+        u = _env("DB_USER", "root")
+        p = urllib.parse.quote_plus((_env("DB_PASSWORD", "")).strip())
+        h = _env("DB_HOST", "localhost")
+        port = _env("DB_PORT", "3306")
+        db = _env("DB_NAME", "welfog_db")
+        mysql_url = f"mysql+pymysql://{u}:{p}@{h}:{port}/{db}?charset=utf8mb4"
+
+    pg_url = _env("WELFOG_PG_URL")
+    if not pg_url and _env("POSTGRES_HOST"):
+        u = _env("POSTGRES_USER", "welfog_user")
+        p = urllib.parse.quote_plus((_env("POSTGRES_PASSWORD", "")).strip())
+        h = _env("POSTGRES_HOST", "localhost")
+        port = _env("POSTGRES_PORT", "5433")
+        db = _env("POSTGRES_DB", "welfog_product")
+        pg_url = f"postgresql+psycopg2://{u}:{p}@{h}:{port}/{db}"
+
+    urls = {"mysql": mysql_url, "postgres": pg_url}
 
     client = None
     if not args.dry_run:

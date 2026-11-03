@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.auth.dependencies import verify_storefront_auth
 from app.core.logging import get_logger
 from app.core.responses import success_response
 from app.database.database import get_db
@@ -12,7 +13,7 @@ from app.events.schemas import (
     EventIn,
 )
 
-router = APIRouter(prefix="/events", tags=["Event Tracking"])
+router = APIRouter(prefix="/events", tags=["Event Tracking"], dependencies=[Depends(verify_storefront_auth)])
 logger = get_logger(__name__)
 
 

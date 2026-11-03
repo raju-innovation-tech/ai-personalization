@@ -8,12 +8,18 @@ from sqlalchemy.orm import DeclarativeBase
 
 from app.core.config import settings
 
+connect_args = {}
+if "asyncpg" in settings.DATABASE_URL:
+    connect_args = {"command_timeout": 30.0, "server_settings": {"statement_timeout": "30000"}}
+
 engine = create_async_engine(
     settings.DATABASE_URL,
     pool_size=settings.DB_POOL_SIZE,
     max_overflow=settings.DB_MAX_OVERFLOW,
+    pool_timeout=getattr(settings, "DB_POOL_TIMEOUT_SECONDS", 20.0),
     pool_recycle=getattr(settings, "DB_POOL_RECYCLE_SECONDS", 1800),
     pool_pre_ping=True,
+    connect_args=connect_args,
     echo=False,
 )
 

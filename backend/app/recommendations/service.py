@@ -124,10 +124,19 @@ class SnapshotCache:
         async with lock:
             if not force and self._fresh():
                 return self._snapshot  # type: ignore[return-value]
-            snapshot = await load_snapshot(db)
-            self._snapshot = snapshot
-            self._built_at = time.monotonic()
-            return snapshot
+            try:
+                snapshot = await load_snapshot(db)
+                self._snapshot = snapshot
+                self._built_at = time.monotonic()
+                return snapshot
+            except Exception as exc:
+                if self._snapshot is not None:
+                    logger.warning("reco_snapshot_refresh_failed_using_stale", error=str(exc))
+                    # Postpone immediate re-fetch storm under high load
+                    self._built_at = time.monotonic() - (settings.RECO_SNAPSHOT_TTL_SECONDS / 2)
+                    return self._snapshot
+                logger.error("reco_snapshot_load_failed", error=str(exc))
+                raise
 
 
 snapshot_cache = SnapshotCache()

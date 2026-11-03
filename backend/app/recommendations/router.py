@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth.dependencies import get_current_user, require_roles
+from app.auth.dependencies import get_current_user, require_roles, verify_storefront_auth
 from app.core.config import settings
 from app.core.responses import NotFoundError, success_response
 from app.database.database import get_db
@@ -20,7 +20,7 @@ from app.recommendations import service
 from app.recommendations.engine import Snapshot
 from app.recommendations.schemas import TrackIn
 
-router = APIRouter(prefix="/recommendations", tags=["Recommendations"])
+router = APIRouter(prefix="/recommendations", tags=["Recommendations"], dependencies=[Depends(verify_storefront_auth)])
 
 Limit = Annotated[int, Query(ge=1, le=settings.RECO_MAX_LIMIT, description="Number of items to return")]
 

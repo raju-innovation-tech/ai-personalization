@@ -5,7 +5,7 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth.dependencies import get_current_user, require_roles
+from app.auth.dependencies import get_current_user, require_roles, verify_storefront_auth
 from app.core.logging import get_logger
 from app.core.responses import NotFoundError, success_response
 from app.database.database import get_db
@@ -29,8 +29,8 @@ async def _offer_or_404(db: AsyncSession, offer_id: uuid.UUID):
     return offer
 
 
-# ------------------------------------------------------------ storefront (open)
-@router.get("/user/{external_user_id}", summary="Personalised offers for a customer")
+# ------------------------------------------------------------ storefront (open / api-key protected)
+@router.get("/user/{external_user_id}", summary="Personalised offers for a customer", dependencies=[Depends(verify_storefront_auth)])
 async def offers_for_user(
     external_user_id: str,
     limit: Annotated[int, Query(ge=1, le=20)] = 5,
@@ -60,7 +60,7 @@ async def offers_for_user(
     )
 
 
-@router.post("/track", status_code=201, summary="Track an offer impression or click")
+@router.post("/track", status_code=201, summary="Track an offer impression or click", dependencies=[Depends(verify_storefront_auth)])
 async def track(payload: OfferTrackIn, db: AsyncSession = Depends(get_db)):
     offer = await service.get_offer_by_code(db, payload.code)
     if offer is None:

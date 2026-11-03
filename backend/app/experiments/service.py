@@ -8,6 +8,7 @@ from sqlalchemy import and_, distinct, func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.logging import get_logger
 from app.core.responses import ApiError
 from app.customers.intelligence import purchase_value
 from app.database.models.event import EventType, UserEvent
@@ -17,6 +18,8 @@ from app.database.models.product import Product
 from app.experiments import engine
 from app.experiments.engine import VariantData
 from app.experiments.schemas import ExperimentIn
+
+logger = get_logger(__name__)
 
 TRANSITIONS: dict[str, set[str]] = {
     "draft": {"running"},
@@ -64,21 +67,28 @@ async def assign_for_request(db: AsyncSession, kind: str, user_id: str) -> Assig
     variant_key = engine.assign(experiment.key, experiment.traffic_percent, experiment.variants, user_id)
     if variant_key is None:
         return None
-    variant = next(v for v in experiment.variants if v["key"] == variant_key)
+    variant = next((v for v in experiment.variants if v.get("key") == variant_key), None)
+    if variant is None:
+        return None
     assignment = Assignment(str(experiment.id), experiment.key, dict(variant))
 
-    await db.execute(
-        pg_insert(ExperimentExposure)
-        .values(
-            id=uuid.uuid4(),
-            experiment_id=experiment.id,
-            external_user_id=user_id,
-            variant_key=variant_key,
-            first_exposed_at=datetime.now(timezone.utc),
+    try:
+        await db.execute(
+            pg_insert(ExperimentExposure)
+            .values(
+                id=uuid.uuid4(),
+                experiment_id=experiment.id,
+                external_user_id=user_id,
+                variant_key=variant_key,
+                first_exposed_at=datetime.now(timezone.utc),
+            )
+            .on_conflict_do_nothing(index_elements=[ExperimentExposure.experiment_id, ExperimentExposure.external_user_id])
         )
-        .on_conflict_do_nothing(index_elements=[ExperimentExposure.experiment_id, ExperimentExposure.external_user_id])
-    )
-    await db.commit()
+        await db.commit()
+    except Exception as exc:  # noqa: BLE001
+        await db.rollback()
+        # Logging exposure must never crash serving the recommendation or offer
+        logger.warning("experiment_exposure_failed", experiment_id=str(experiment.id), user_id=user_id, error=str(exc))
     return assignment
 
 

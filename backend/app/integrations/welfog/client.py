@@ -1,6 +1,7 @@
 """HTTP client for the engine's own API (so the sync uses exactly the validated public endpoints)."""
 from __future__ import annotations
 
+import os
 import time
 
 import httpx
@@ -37,6 +38,9 @@ class EngineClient:
         relogged = False
         for attempt in range(self.retries + 1):
             headers = {}
+            storefront_key = os.environ.get("STOREFRONT_API_KEY")
+            if storefront_key:
+                headers["X-API-Key"] = storefront_key
             if auth:
                 if self._token is None:
                     self._login()

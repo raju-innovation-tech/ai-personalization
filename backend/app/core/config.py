@@ -90,10 +90,14 @@ class Settings(BaseSettings):
     # --- LLM (optional, Phase 19 feature — not used in Phase 1) ---
     ANTHROPIC_API_KEY: str = ""
 
+    # --- Security & Storefront API Key ---
+    STOREFRONT_API_KEY: str = Field(default="", description="Optional secret key for storefront e-commerce requests")
+
     # --- Phase 8: Production Hardening ---
     MAX_CONTENT_LENGTH_BYTES: int = 10 * 1024 * 1024  # 10MB maximum request payload size
     ENABLE_SECURITY_HEADERS: bool = True
     DB_POOL_RECYCLE_SECONDS: int = 1800  # recycle connections every 30 mins
+    DB_POOL_TIMEOUT_SECONDS: float = 20.0  # seconds to wait before timing out connection pool
     RATE_LIMIT_LOGIN_PER_MINUTE: int = 15  # anti-bruteforce login limit
     METRICS_ENABLED: bool = True
 

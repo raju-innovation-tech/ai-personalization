@@ -27,10 +27,13 @@ def _as_test_url(raw: str):
 def _detect_db_url():
     candidates = [
         os.environ.get("TEST_DATABASE_URL"),
-        os.environ.get("DATABASE_URL"),
-        "postgresql+asyncpg://raju:raju-dev-708433@localhost:5433/ai_personalization",
-        "postgresql+asyncpg://ai_personalization:ai_personalization@localhost:5433/ai_personalization",
+        "postgresql+asyncpg://raju:raju-dev-708433@127.0.0.1:5433/ai_personalization",
+        "postgresql+asyncpg://raju:raju-dev-708433@127.0.0.1:5432/ai_personalization",
+        "postgresql+asyncpg://ai_personalization:ai_personalization@127.0.0.1:5433/ai_personalization",
+        "postgresql+asyncpg://ai_personalization:ai_personalization@127.0.0.1:5432/ai_personalization",
     ]
+    if os.environ.get("DATABASE_URL") and "@postgres:" not in os.environ.get("DATABASE_URL", ""):
+        candidates.append(os.environ.get("DATABASE_URL"))
     for raw in candidates:
         if not raw:
             continue
@@ -42,16 +45,16 @@ def _detect_db_url():
                 user=url.username,
                 password=url.password,
                 dbname=url.database or "postgres",
-                connect_timeout=2,
+                connect_timeout=1,
             )
             conn.close()
             return raw
         except Exception:
             continue
-    return "postgresql+asyncpg://raju:raju-dev-708433@localhost:5433/ai_personalization"
+    return "postgresql+asyncpg://raju:raju-dev-708433@127.0.0.1:5433/ai_personalization"
 
 
-_async_url = _as_test_url(os.environ.get("TEST_DATABASE_URL") or os.environ.get("DATABASE_URL") or _detect_db_url())
+_async_url = _as_test_url(os.environ.get("TEST_DATABASE_URL") or _detect_db_url())
 _sync_url = _async_url.set(drivername="postgresql+psycopg2")
 
 os.environ["DATABASE_URL"] = _async_url.render_as_string(hide_password=False)
@@ -84,6 +87,7 @@ def _ensure_test_database_exists() -> None:
 
 _ensure_test_database_exists()
 
+import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -148,8 +152,8 @@ async def client(override_get_db):
         yield ac
 
 
-@pytest_asyncio.fixture(autouse=True)
-async def _reset_recommendation_cache():
+@pytest.fixture(autouse=True)
+def _reset_recommendation_cache():
     """The model snapshot is cached in-process; every test starts with a fresh DB."""
     from app.recommendations.service import reset_snapshot_cache
 

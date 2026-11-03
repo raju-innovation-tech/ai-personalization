@@ -78,42 +78,45 @@ class RequestTracingMiddleware(BaseHTTPMiddleware):
         response.headers["X-Request-ID"] = request_id
         response.headers["X-Response-Time"] = f"{duration_ms}ms"
 
-        # Record metrics for observability
-        normalized_path = request.url.path
-        # Normalize paths with IDs to keep metric cardinality low
-        if "/similar/" in normalized_path:
-            normalized_path = "/api/v1/recommendations/similar/:id"
-        elif "/frequently-bought/" in normalized_path:
-            normalized_path = "/api/v1/recommendations/frequently-bought/:id"
-        elif "/user/" in normalized_path and "recommendations" in normalized_path:
-            normalized_path = "/api/v1/recommendations/user/:id"
-        elif "/user/" in normalized_path and "offers" in normalized_path:
-            normalized_path = "/api/v1/offers/user/:id"
-        elif "/customers/" in normalized_path:
-            normalized_path = "/api/v1/customers/:id"
+        try:
+            # Record metrics for observability
+            normalized_path = request.url.path
+            # Normalize paths with IDs to keep metric cardinality low
+            if "/similar/" in normalized_path:
+                normalized_path = "/api/v1/recommendations/similar/:id"
+            elif "/frequently-bought/" in normalized_path:
+                normalized_path = "/api/v1/recommendations/frequently-bought/:id"
+            elif "/user/" in normalized_path and "recommendations" in normalized_path:
+                normalized_path = "/api/v1/recommendations/user/:id"
+            elif "/user/" in normalized_path and "offers" in normalized_path:
+                normalized_path = "/api/v1/offers/user/:id"
+            elif "/customers/" in normalized_path:
+                normalized_path = "/api/v1/customers/:id"
 
-        metrics_collector.inc_counter(
-            "http_requests_total",
-            1.0,
-            {
-                "method": request.method,
-                "path": normalized_path,
-                "status": str(response.status_code),
-            },
-        )
-        metrics_collector.observe_duration(
-            "http_request_duration_seconds",
-            duration_sec,
-            {"method": request.method, "path": normalized_path},
-        )
+            metrics_collector.inc_counter(
+                "http_requests_total",
+                1.0,
+                {
+                    "method": request.method,
+                    "path": normalized_path,
+                    "status": str(response.status_code),
+                },
+            )
+            metrics_collector.observe_duration(
+                "http_request_duration_seconds",
+                duration_sec,
+                {"method": request.method, "path": normalized_path},
+            )
 
-        logger.info(
-            "request_completed",
-            request_id=request_id,
-            method=request.method,
-            path=request.url.path,
-            status_code=response.status_code,
-            latency_ms=duration_ms,
-        )
+            logger.info(
+                "request_completed",
+                request_id=request_id,
+                method=request.method,
+                path=request.url.path,
+                status_code=response.status_code,
+                latency_ms=duration_ms,
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("metrics_trace_logging_failed", error=str(exc))
 
         return response

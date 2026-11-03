@@ -17,7 +17,12 @@ _start_time = time.time()
 def get_redis() -> Redis:
     global _redis_client
     if _redis_client is None:
-        _redis_client = Redis.from_url(settings.REDIS_URL, decode_responses=True)
+        _redis_client = Redis.from_url(
+            settings.REDIS_URL,
+            decode_responses=True,
+            socket_timeout=2.0,
+            socket_connect_timeout=2.0,
+        )
     return _redis_client
 
 
@@ -50,19 +55,24 @@ async def ready(response: Response, db: AsyncSession = Depends(get_db)):
         checks["database"] = "ok"
     except Exception as exc:  # noqa: BLE001
         latencies["database_ms"] = round((time.perf_counter() - t0) * 1000, 2)
-        checks["database"] = f"error: {exc}"
+        checks["database"] = f"error: {exc}" if settings.DEBUG else "error: database connection failed"
 
     # 2. Redis check + latency
     t1 = time.perf_counter()
     r_client = None
     try:
-        r_client = Redis.from_url(settings.REDIS_URL, decode_responses=True)
+        r_client = Redis.from_url(
+            settings.REDIS_URL,
+            decode_responses=True,
+            socket_timeout=2.0,
+            socket_connect_timeout=2.0,
+        )
         await r_client.ping()
         latencies["redis_ms"] = round((time.perf_counter() - t1) * 1000, 2)
         checks["redis"] = "ok"
     except Exception as exc:  # noqa: BLE001
         latencies["redis_ms"] = round((time.perf_counter() - t1) * 1000, 2)
-        checks["redis"] = f"error: {exc}"
+        checks["redis"] = f"error: {exc}" if settings.DEBUG else "error: redis connection failed"
     finally:
         if r_client is not None:
             try:

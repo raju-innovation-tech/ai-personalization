@@ -109,6 +109,8 @@ def sample_size_per_variant(baseline_rate: float, relative_lift: float = 0.10, p
         return None
     p1 = baseline_rate
     p2 = min(baseline_rate * (1 + relative_lift), 0.999)
+    if p2 <= p1:
+        return None
     pbar = (p1 + p2) / 2
     z_beta = _NORMAL.inv_cdf(power)
     numerator = (_Z_CRIT * math.sqrt(2 * pbar * (1 - pbar)) + z_beta * math.sqrt(p1 * (1 - p1) + p2 * (1 - p2))) ** 2

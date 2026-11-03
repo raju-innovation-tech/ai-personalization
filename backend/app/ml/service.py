@@ -48,14 +48,14 @@ def _extract_features(cust: EcommerceCustomer, now: datetime) -> CustomerFeature
         f_score=cust.f_score,
         m_score=cust.m_score,
         recency_days=cust.recency_days,
-        order_count=cust.order_count,
-        total_spend=float(cust.total_spend),
+        order_count=cust.order_count or 0,
+        total_spend=float(cust.total_spend or 0.0),
         avg_order_value=aov,
-        return_count=cust.return_count,
-        view_count=cust.view_count,
-        cart_add_count=cust.cart_add_count,
-        wishlist_count=cust.wishlist_count,
-        active_days=cust.active_days,
+        return_count=cust.return_count or 0,
+        view_count=cust.view_count or 0,
+        cart_add_count=cust.cart_add_count or 0,
+        wishlist_count=cust.wishlist_count or 0,
+        active_days=cust.active_days or 0,
         days_since_last_seen=days_since_seen,
         segment=cust.segment,
         favorite_category=cust.favorite_category,
@@ -89,30 +89,18 @@ async def run_ml_scoring(db: AsyncSession, redis) -> dict:
     features = [_extract_features(c, now) for c in customers]
     purchase_preds, churn_preds, offer_preds = registry.score_customers(features)
 
-    # Write to Redis
-    pipe = redis.pipeline()
-    for pp, cp, op in zip(purchase_preds, churn_preds, offer_preds, strict=True):
-        uid = pp.user_id
-        pipe.setex(_PURCHASE_KEY.format(user_id=uid), _ML_CACHE_TTL, _pred_to_json(pp))
-        pipe.setex(_CHURN_KEY.format(user_id=uid), _ML_CACHE_TTL, _pred_to_json(cp))
-        pipe.setex(_OFFER_KEY.format(user_id=uid), _ML_CACHE_TTL, _offer_to_json(op))
-
-    # Store registry summary
-    models_summary = [
-        {
-            "name": info.name,
-            "version": info.version,
-            "description": info.description,
-            "trained_at": info.trained_at.isoformat(),
-            "customer_count": info.customer_count,
-            "avg_score": info.avg_score,
-            "high_risk_count": info.high_risk_count,
-            "estimated_auc": info.estimated_auc,
-        }
-        for info in registry.all()
-    ]
-    pipe.setex(_REGISTRY_KEY, _ML_CACHE_TTL, json.dumps(models_summary))
-    await pipe.execute()
+    # Write to Redis if available
+    try:
+        pipe = redis.pipeline()
+        for pp, cp, op in zip(purchase_preds, churn_preds, offer_preds, strict=True):
+            uid = pp.user_id
+            pipe.setex(_PURCHASE_KEY.format(user_id=uid), _ML_CACHE_TTL, _pred_to_json(pp))
+            pipe.setex(_CHURN_KEY.format(user_id=uid), _ML_CACHE_TTL, _pred_to_json(cp))
+            pipe.setex(_OFFER_KEY.format(user_id=uid), _ML_CACHE_TTL, _offer_to_json(op))
+        pipe.setex(_REGISTRY_KEY, _ML_CACHE_TTL, json.dumps(models_summary))
+        await pipe.execute()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("ml_redis_write_failed", error=str(exc))
 
     logger.info("ml_scoring_complete", scored=len(customers), models=len(registry.all()))
     return {"scored": len(customers), "models": models_summary}
@@ -140,8 +128,23 @@ def _offer_to_json(p: OfferResponsePrediction) -> str:
 # Single-customer fetch                                                        #
 # --------------------------------------------------------------------------- #
 
+async def _redis_get_safe(redis, key: str) -> str | None:
+    try:
+        return await redis.get(key)
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("ml_redis_read_failed", key=key, error=str(exc))
+        return None
+
+
+async def _redis_set_safe(redis, key: str, ttl: int, val: str) -> None:
+    try:
+        await redis.setex(key, ttl, val)
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("ml_redis_set_failed", key=key, error=str(exc))
+
+
 async def get_customer_purchase_prediction(user_id: str, db: AsyncSession, redis) -> dict | None:
-    raw = await redis.get(_PURCHASE_KEY.format(user_id=user_id))
+    raw = await _redis_get_safe(redis, _PURCHASE_KEY.format(user_id=user_id))
     if raw:
         return json.loads(raw)
     # Score on the fly if not cached
@@ -149,14 +152,14 @@ async def get_customer_purchase_prediction(user_id: str, db: AsyncSession, redis
 
 
 async def get_customer_churn_prediction(user_id: str, db: AsyncSession, redis) -> dict | None:
-    raw = await redis.get(_CHURN_KEY.format(user_id=user_id))
+    raw = await _redis_get_safe(redis, _CHURN_KEY.format(user_id=user_id))
     if raw:
         return json.loads(raw)
     return await _score_one(user_id, db, redis, "churn")
 
 
 async def get_customer_offer_prediction(user_id: str, db: AsyncSession, redis) -> dict | None:
-    raw = await redis.get(_OFFER_KEY.format(user_id=user_id))
+    raw = await _redis_get_safe(redis, _OFFER_KEY.format(user_id=user_id))
     if raw:
         return json.loads(raw)
     return await _score_one(user_id, db, redis, "offer")
@@ -174,21 +177,21 @@ async def _score_one(user_id: str, db: AsyncSession, redis, kind: str) -> dict |
     registry: ModelRegistry = get_registry()
     if kind == "purchase":
         pred = registry.purchase_model.score(features)
-        await redis.setex(_PURCHASE_KEY.format(user_id=user_id), _ML_CACHE_TTL, _pred_to_json(pred))
+        await _redis_set_safe(redis, _PURCHASE_KEY.format(user_id=user_id), _ML_CACHE_TTL, _pred_to_json(pred))
         return json.loads(_pred_to_json(pred))
     if kind == "churn":
         pred = registry.churn_model.score(features)
-        await redis.setex(_CHURN_KEY.format(user_id=user_id), _ML_CACHE_TTL, _pred_to_json(pred))
+        await _redis_set_safe(redis, _CHURN_KEY.format(user_id=user_id), _ML_CACHE_TTL, _pred_to_json(pred))
         return json.loads(_pred_to_json(pred))
     if kind == "offer":
         pred = registry.offer_model.score(features)
-        await redis.setex(_OFFER_KEY.format(user_id=user_id), _ML_CACHE_TTL, _offer_to_json(pred))
+        await _redis_set_safe(redis, _OFFER_KEY.format(user_id=user_id), _ML_CACHE_TTL, _offer_to_json(pred))
         return json.loads(_offer_to_json(pred))
     return None
 
 
 async def get_ml_registry(redis) -> list[dict]:
-    raw = await redis.get(_REGISTRY_KEY)
+    raw = await _redis_get_safe(redis, _REGISTRY_KEY)
     if raw:
         return json.loads(raw)
     return []

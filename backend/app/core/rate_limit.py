@@ -18,22 +18,34 @@ logger = get_logger("app.rate_limit")
 
 
 class InMemoryFallbackLimiter:
-    """Thread-safe fallback limiter if Redis is offline."""
+    """Thread-safe bounded fallback limiter if Redis is offline."""
 
-    def __init__(self):
+    def __init__(self, max_keys: int = 10000):
         self._lock = threading.Lock()
         self._records: Dict[str, List[float]] = defaultdict(list)
+        self._max_keys = max_keys
 
     def is_allowed(self, key: str, limit: int, window_seconds: int) -> tuple[bool, int]:
         now = time.time()
         cutoff = now - window_seconds
         with self._lock:
+            # Periodic cleanup if dict grows large
+            if len(self._records) > self._max_keys:
+                stale_keys = [k for k, ts in self._records.items() if not ts or ts[-1] <= cutoff]
+                for sk in stale_keys:
+                    self._records.pop(sk, None)
+
             timestamps = self._records[key]
             # Prune expired timestamps
-            self._records[key] = [t for t in timestamps if t > cutoff]
-            current_count = len(self._records[key])
+            valid = [t for t in timestamps if t > cutoff]
+            if not valid and key in self._records:
+                del self._records[key]
+            else:
+                self._records[key] = valid
+
+            current_count = len(valid)
             if current_count >= limit:
-                oldest = self._records[key][0]
+                oldest = valid[0]
                 retry_after = max(1, int(oldest + window_seconds - now))
                 return False, retry_after
 

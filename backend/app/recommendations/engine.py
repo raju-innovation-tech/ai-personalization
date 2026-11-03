@@ -180,7 +180,7 @@ class Snapshot:
         if product.color:
             features[f"color:{product.color.lower()}"] = 0.5
         skip = set(_TOKEN_RE.findall(f"{product.brand or ''} {product.category or ''}".lower()))
-        for token in set(_TOKEN_RE.findall(product.name.lower())):
+        for token in set(_TOKEN_RE.findall((product.name or "").lower())):
             if token not in skip:
                 features[f"tok:{token}"] = 0.5
         return features
