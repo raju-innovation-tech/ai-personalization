@@ -85,7 +85,12 @@ def _send_smtp_sync(to_email: str, subject: str, text_content: str, html_content
     port = settings.SMTP_PORT
     user = settings.SMTP_USER.strip()
     password = settings.SMTP_PASSWORD.strip()
-    from_email = settings.SMTP_FROM_EMAIL.strip() or user
+
+    # If sending through Gmail and from_email is default 'noreply@welfog.com',
+    # use authenticated user email to prevent Gmail 553/550 sender rejection.
+    from_email = settings.SMTP_FROM_EMAIL.strip()
+    if not from_email or (from_email == "noreply@welfog.com" and user):
+        from_email = user
     from_name = settings.SMTP_FROM_NAME.strip()
     timeout = settings.SMTP_TIMEOUT_SECONDS
 
@@ -97,15 +102,17 @@ def _send_smtp_sync(to_email: str, subject: str, text_content: str, html_content
     msg.attach(MIMEText(text_content, "plain", "utf-8"))
     msg.attach(MIMEText(html_content, "html", "utf-8"))
 
-    if settings.SMTP_USE_SSL:
+    if settings.SMTP_USE_SSL or port == 465:
         with smtplib.SMTP_SSL(host, port, timeout=timeout) as server:
             if user and password:
                 server.login(user, password)
             server.send_message(msg)
     else:
         with smtplib.SMTP(host, port, timeout=timeout) as server:
+            server.ehlo()
             if settings.SMTP_USE_TLS:
                 server.starttls()
+                server.ehlo()
             if user and password:
                 server.login(user, password)
             server.send_message(msg)
@@ -116,11 +123,22 @@ async def send_otp_email(to_email: str, otp: str, user_name: str | None = None) 
     Deliver 6-digit OTP code to user's registered email via configured SMTP.
     Returns True if sent, False if SMTP is unconfigured or encountered an error.
     """
-    if not settings.SMTP_HOST.strip():
+    host = settings.SMTP_HOST.strip()
+    user = settings.SMTP_USER.strip()
+    password = settings.SMTP_PASSWORD.strip()
+
+    if not host or not user or not password:
         logger.warning(
-            "smtp_not_configured_otp_email_skipped",
+            "smtp_unconfigured_otp_email_skipped",
             recipient=to_email,
-            hint="Set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD in .env for production delivery.",
+            hint="Set SMTP_USER and SMTP_PASSWORD in backend/.env for real email delivery via Gmail.",
+        )
+        # Development fallback log so local testing is never blocked
+        logger.info(
+            "dev_otp_fallback_code",
+            recipient=to_email,
+            otp=otp,
+            info="Enter this code in Flutter dialog or configure SMTP in backend/.env for real Gmail delivery.",
         )
         return False
 
@@ -138,5 +156,7 @@ async def send_otp_email(to_email: str, otp: str, user_name: str | None = None) 
         return True
     except Exception as exc:  # noqa: BLE001
         logger.error("otp_email_delivery_failed", recipient=to_email, error=str(exc))
+        # Log dev fallback in case of delivery failure
+        logger.info("dev_otp_fallback_code_after_failure", recipient=to_email, otp=otp)
         return False
 
