@@ -33,7 +33,7 @@ async def create_user(payload: UserCreateIn, db: AsyncSession = Depends(get_db),
     return success_response(service.user_out(user))
 
 
-@router.patch("/{user_id}", summary="Change name, role, active flag or password (admin)")
+@router.patch("/{user_id}", summary="Change name, email, role, active flag or password (admin)")
 async def update_user(
     user_id: uuid.UUID, payload: UserUpdateIn, db: AsyncSession = Depends(get_db), actor: User = Depends(_admin)
 ):
@@ -41,7 +41,26 @@ async def update_user(
     if user is None:
         raise NotFoundError(f"User '{user_id}' not found", code="USER_NOT_FOUND")
     user = await service.update_user_checked(
-        db, actor, user, full_name=payload.full_name, role=payload.role, is_active=payload.is_active, password=payload.password
+        db,
+        actor,
+        user,
+        email=payload.email,
+        full_name=payload.full_name,
+        role=payload.role,
+        is_active=payload.is_active,
+        password=payload.password,
     )
     logger.info("user_updated", email=user.email, by=actor.email)
     return success_response(service.user_out(user))
+
+
+@router.delete("/{user_id}", summary="Delete a staff user (admin/super_admin)")
+async def delete_user(
+    user_id: uuid.UUID, db: AsyncSession = Depends(get_db), actor: User = Depends(_admin)
+):
+    user = await service.get_user(db, user_id)
+    if user is None:
+        raise NotFoundError(f"User '{user_id}' not found", code="USER_NOT_FOUND")
+    await service.delete_user_checked(db, actor, user)
+    logger.info("user_deleted", email=user.email, by=actor.email)
+    return success_response({"deleted": True, "id": str(user_id)})

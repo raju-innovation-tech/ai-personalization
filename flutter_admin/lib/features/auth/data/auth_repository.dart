@@ -45,4 +45,31 @@ class AuthRepository {
     final token = await _tokenStorage.getAccessToken();
     return token != null;
   }
+
+  Future<Map<String, dynamic>> requestPasswordReset(String email) async {
+    final response = await _apiClient.post('/auth/forgot-password', data: {
+      'email': email,
+    });
+    return response['data'] as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> resetPassword({
+    required String email,
+    required String code,
+    required String newPassword,
+  }) async {
+    final response = await _apiClient.post('/auth/reset-password', data: {
+      'email': email,
+      'code': code,
+      'new_password': newPassword,
+    });
+    final data = response['data'] as Map<String, dynamic>;
+    if (data['access_token'] != null && data['refresh_token'] != null) {
+      await _tokenStorage.saveTokens(
+        accessToken: data['access_token'] as String,
+        refreshToken: data['refresh_token'] as String,
+      );
+    }
+    return data;
+  }
 }

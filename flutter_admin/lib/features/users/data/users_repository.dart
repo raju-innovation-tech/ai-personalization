@@ -36,12 +36,14 @@ class UsersRepository {
   /// Only the fields that are not null are sent.
   Future<StaffUser> update(
     String id, {
+    String? email,
     String? fullName,
     UserRole? role,
     bool? isActive,
     String? password,
   }) async {
     final body = <String, dynamic>{
+      if (email != null && email.trim().isNotEmpty) 'email': email.trim(),
       if (fullName != null) 'full_name': fullName.trim(),
       if (role != null) 'role': role.value,
       if (isActive != null) 'is_active': isActive,
@@ -49,5 +51,9 @@ class UsersRepository {
     };
     final response = await _apiClient.patch('/users/$id', data: body);
     return StaffUser.fromJson(response['data'] as Map<String, dynamic>);
+  }
+
+  Future<void> delete(String id) async {
+    await _apiClient.delete('/users/$id');
   }
 }

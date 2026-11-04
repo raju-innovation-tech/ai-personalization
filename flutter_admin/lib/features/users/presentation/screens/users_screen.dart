@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/errors/app_failure.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/state_widgets.dart';
+import '../../../auth/domain/admin_user.dart';
 import '../../../auth/presentation/providers/auth_controller.dart';
 import '../../../auth/presentation/providers/auth_state.dart';
 import '../../domain/staff_user.dart';
@@ -59,14 +60,21 @@ class UsersScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 16),
           usersAsync.when(
-            loading: () => const Padding(padding: EdgeInsets.all(32), child: LoadingState(message: 'Loading users...')),
+            loading: () => const Padding(
+              padding: EdgeInsets.all(32),
+              child: LoadingState(message: 'Loading users...'),
+            ),
             error: (error, _) => ErrorState(
               message: errorMessageOf(error),
               onRetry: () => ref.invalidate(usersProvider),
             ),
             data: (users) {
               if (users.isEmpty) {
-                return const EmptyState(title: 'No users yet', subtitle: 'Create the first one.', icon: Icons.people_outline);
+                return const EmptyState(
+                  title: 'No users yet',
+                  subtitle: 'Create the first one.',
+                  icon: Icons.people_outline,
+                );
               }
               return Card(
                 clipBehavior: Clip.antiAlias,
@@ -77,6 +85,8 @@ class UsersScreen extends ConsumerWidget {
                       _UserRow(
                         user: users[i],
                         isYou: users[i].id == currentUser?.id,
+                        isLocked: users[i].role == UserRole.superAdmin &&
+                            currentUser?.role != UserRole.superAdmin,
                         onEdit: () => openForm(user: users[i]),
                       ),
                     ],
@@ -98,10 +108,16 @@ class UsersScreen extends ConsumerWidget {
 }
 
 class _UserRow extends StatelessWidget {
-  const _UserRow({required this.user, required this.isYou, required this.onEdit});
+  const _UserRow({
+    required this.user,
+    required this.isYou,
+    required this.isLocked,
+    required this.onEdit,
+  });
 
   final StaffUser user;
   final bool isYou;
+  final bool isLocked;
   final VoidCallback onEdit;
 
   @override
@@ -119,18 +135,34 @@ class _UserRow extends StatelessWidget {
             CircleAvatar(
               radius: 20,
               backgroundColor: AppColors.primary.withValues(alpha: 0.12),
-              child: Text(initial, style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700)),
+              child: Text(
+                initial,
+                style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700),
+              ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    isYou ? '${user.fullName} (you)' : user.fullName,
-                    style: textTheme.titleMedium?.copyWith(fontSize: 14),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          isYou ? '${user.fullName} (you)' : user.fullName,
+                          style: textTheme.titleMedium?.copyWith(fontSize: 14),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (isLocked) ...[
+                        const SizedBox(width: 6),
+                        const Tooltip(
+                          message: 'Super Admin is protected and cannot be edited by Admins',
+                          child: Icon(Icons.shield_outlined, size: 16, color: AppColors.warning),
+                        ),
+                      ],
+                    ],
                   ),
                   const SizedBox(height: 2),
                   Text(
@@ -163,7 +195,11 @@ class _UserRow extends StatelessWidget {
               ],
             ),
             const SizedBox(width: 4),
-            const Icon(Icons.chevron_right, size: 20),
+            Icon(
+              isLocked ? Icons.lock_outline : Icons.chevron_right,
+              size: 20,
+              color: isLocked ? AppColors.warning : null,
+            ),
           ],
         ),
       ),

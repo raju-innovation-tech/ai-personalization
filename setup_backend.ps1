@@ -19,7 +19,8 @@ for ($i = 0; $i -lt 60; $i++) {
     try {
         $r = Invoke-RestMethod http://localhost:8000/api/v1/health -TimeoutSec 2
         if ($r.success) { $ok = $true; break }
-    } catch { Start-Sleep -Seconds 2 }
+    }
+    catch { Start-Sleep -Seconds 2 }
 }
 if (-not $ok) { Write-Host "API did not come up. Check: docker compose logs backend"; exit 1 }
 

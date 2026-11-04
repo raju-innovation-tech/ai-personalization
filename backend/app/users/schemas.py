@@ -11,6 +11,7 @@ class UserCreateIn(BaseModel):
 
 
 class UserUpdateIn(BaseModel):
+    email: EmailStr | None = None
     full_name: str | None = Field(default=None, min_length=1, max_length=255)
     role: UserRole | None = None
     is_active: bool | None = None
@@ -18,6 +19,6 @@ class UserUpdateIn(BaseModel):
 
     @model_validator(mode="after")
     def at_least_one_field(self) -> "UserUpdateIn":
-        if all(v is None for v in (self.full_name, self.role, self.is_active, self.password)):
+        if all(v is None for v in (self.email, self.full_name, self.role, self.is_active, self.password)):
             raise ValueError("send at least one field to change")
         return self

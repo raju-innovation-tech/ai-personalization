@@ -12,7 +12,7 @@ from app.core.config import settings
 
 pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
 
-TokenType = Literal["access", "refresh"]
+TokenType = Literal["access", "refresh", "reset"]
 
 
 def hash_password(plain_password: str) -> str:
@@ -27,6 +27,8 @@ def _create_token(subject: str, token_type: TokenType, extra_claims: dict[str, A
     now = datetime.now(timezone.utc)
     if token_type == "access":
         expire = now + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    elif token_type == "reset":
+        expire = now + timedelta(minutes=15)
     else:
         expire = now + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
 
@@ -49,6 +51,10 @@ def create_access_token(subject: str, role: str) -> str:
 
 def create_refresh_token(subject: str) -> str:
     return _create_token(subject, "refresh")
+
+
+def create_reset_token(subject: str) -> str:
+    return _create_token(subject, "reset")
 
 
 def decode_token(token: str) -> dict[str, Any]:

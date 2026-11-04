@@ -18,7 +18,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import require_roles
 from app.core.health import get_redis
-from app.core.responses import success_response
+from app.core.logging import get_logger
+from app.core.responses import ApiError, success_response
 from app.database.database import get_db
 from app.database.models.user import UserRole
 from app.ml.service import (
@@ -33,6 +34,7 @@ from app.ml.service import (
 )
 
 router = APIRouter(prefix="/ml", tags=["ml"])
+logger = get_logger("app.ml.router")
 
 # Any logged-in user can read ML data; only admins can trigger a rebuild
 _any_role = require_roles(
@@ -59,8 +61,12 @@ async def rebuild_models(
     redis=Depends(get_redis),
 ):
     """Run batch ML scoring for all customers (ADMIN+ only)."""
-    result = await run_ml_scoring(db, redis)
-    return success_response(result)
+    try:
+        result = await run_ml_scoring(db, redis)
+        return success_response(result)
+    except Exception as exc:
+        logger.error("ml_rebuild_failed", error=str(exc), exc_info=exc)
+        raise ApiError(code="ML_REBUILD_ERROR", message=f"Failed to rebuild models: {exc}", status_code=500) from exc
 
 
 @router.get("/customers/{user_id}/purchase")

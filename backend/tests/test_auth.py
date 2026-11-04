@@ -107,3 +107,59 @@ async def test_access_token_is_not_accepted_as_refresh_token(client, db_session)
     ).json()["data"]
     response = await client.post("/api/v1/auth/refresh", json={"refresh_token": tokens["access_token"]})
     assert response.status_code == 401
+
+
+async def test_forgot_password_and_reset_flow(client, db_session):
+    from app.auth.service import _IN_MEMORY_OTP_STORE
+    _IN_MEMORY_OTP_STORE.clear()
+
+    await _create_user(db_session, email="reset_user@test.com", password="OldPassword123!")
+
+    # 1. Request reset code (OTP dispatched, not returned in body)
+    forgot_resp = await client.post("/api/v1/auth/forgot-password", json={"email": "reset_user@test.com"})
+    assert forgot_resp.status_code == 200
+    forgot_data = forgot_resp.json()["data"]
+    assert "reset_code" not in forgot_data
+    assert "verification code" in forgot_data["message"].lower()
+
+    # Verify code was generated and stored securely
+    otp_record = _IN_MEMORY_OTP_STORE.get("reset_user@test.com")
+    assert otp_record is not None
+    code = otp_record["code"]
+    assert len(code) == 6
+
+    # 2. Resend Cooldown (within 60s should return 429)
+    cooldown_resp = await client.post("/api/v1/auth/forgot-password", json={"email": "reset_user@test.com"})
+    assert cooldown_resp.status_code == 429
+    assert cooldown_resp.json()["error"]["code"] == "OTP_COOLDOWN"
+
+    # 3. Try with wrong code -> should return 401 with remaining attempts
+    bad_reset = await client.post(
+        "/api/v1/auth/reset-password",
+        json={"email": "reset_user@test.com", "code": "000000", "new_password": "NewPassword123!"},
+    )
+    assert bad_reset.status_code == 401
+    assert "4 attempt" in bad_reset.json()["error"]["message"]
+
+    # 4. Reset with correct code -> returns authenticated tokens
+    good_reset = await client.post(
+        "/api/v1/auth/reset-password",
+        json={"email": "reset_user@test.com", "code": code, "new_password": "NewPassword123!"},
+    )
+    assert good_reset.status_code == 200
+    reset_data = good_reset.json()["data"]
+    assert "access_token" in reset_data
+    assert "refresh_token" in reset_data
+    assert reset_data["user"]["email"] == "reset_user@test.com"
+
+    # 5. Old password should fail
+    old_login = await client.post(
+        "/api/v1/auth/login", json={"email": "reset_user@test.com", "password": "OldPassword123!"}
+    )
+    assert old_login.status_code == 401
+
+    # 6. New password should succeed
+    new_login = await client.post(
+        "/api/v1/auth/login", json={"email": "reset_user@test.com", "password": "NewPassword123!"}
+    )
+    assert new_login.status_code == 200

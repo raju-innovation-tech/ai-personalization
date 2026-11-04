@@ -119,6 +119,17 @@ class Settings(BaseSettings):
     RATE_LIMIT_LOGIN_PER_MINUTE: int = 15  # anti-bruteforce login limit
     METRICS_ENABLED: bool = True
 
+    # --- Real-Time Email Delivery (SMTP / Production OTP) ---
+    SMTP_HOST: str = ""
+    SMTP_PORT: int = 587
+    SMTP_USER: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_USE_TLS: bool = True
+    SMTP_USE_SSL: bool = False
+    SMTP_FROM_EMAIL: str = "noreply@welfog.com"
+    SMTP_FROM_NAME: str = "Welfog AI Personalization"
+    SMTP_TIMEOUT_SECONDS: int = 10
+
 
 @lru_cache
 def get_settings() -> Settings:

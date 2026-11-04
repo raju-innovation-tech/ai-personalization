@@ -66,3 +66,8 @@ class ForbiddenError(ApiError):
 class ConflictError(ApiError):
     def __init__(self, message: str = "Conflict", code: str = "CONFLICT"):
         super().__init__(code=code, message=message, status_code=status.HTTP_409_CONFLICT)
+
+
+class RateLimitError(ApiError):
+    def __init__(self, message: str = "Too many requests", code: str = "RATE_LIMITED"):
+        super().__init__(code=code, message=message, status_code=status.HTTP_429_TOO_MANY_REQUESTS)

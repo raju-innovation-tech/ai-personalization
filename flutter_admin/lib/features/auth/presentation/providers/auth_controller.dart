@@ -57,6 +57,18 @@ class AuthController extends StateNotifier<AuthState> {
     if (mounted) state = const AuthUnauthenticated();
   }
 
+  Future<void> authenticateWithCurrentUser() async {
+    state = const AuthLoading();
+    try {
+      final repository = _ref.read(authRepositoryProvider);
+      final user = await repository.fetchCurrentUser();
+      if (!mounted) return;
+      state = AuthAuthenticated(user);
+    } catch (_) {
+      if (mounted) state = const AuthUnauthenticated();
+    }
+  }
+
   /// Called by the API client when a 401 cannot be recovered via refresh.
   void forceLogout() {
     if (state is AuthAuthenticated) {

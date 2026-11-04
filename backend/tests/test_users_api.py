@@ -43,14 +43,19 @@ async def test_create_validation(client, admin_headers, bad):
 
 
 async def test_only_super_admin_manages_super_admins(client, admin_headers, super_headers):
+    # admin cannot create a super admin
     denied = await client.post(API, json=new_user("boss@test.com", role="SUPER_ADMIN"), headers=admin_headers)
     assert denied.status_code == 403 and denied.json()["error"]["code"] == "INSUFFICIENT_ROLE"
-    ok = await client.post(API, json=new_user("boss@test.com", role="SUPER_ADMIN"), headers=super_headers)
-    assert ok.status_code == 201
-    boss_id = ok.json()["data"]["id"]
-    assert (await client.patch(f"{API}/{boss_id}", json={"is_active": False}, headers=admin_headers)).status_code == 403
-    assert (await client.patch(f"{API}/{boss_id}", json={"full_name": "Boss"}, headers=admin_headers)).status_code == 403
-    assert (await client.patch(f"{API}/{boss_id}", json={"full_name": "Boss"}, headers=super_headers)).status_code == 200
+    # only one super admin is allowed: since super@test.com already exists, creating a 2nd fails with 409
+    dup_super = await client.post(API, json=new_user("boss@test.com", role="SUPER_ADMIN"), headers=super_headers)
+    assert dup_super.status_code == 409 and dup_super.json()["error"]["code"] == "ONLY_ONE_SUPER_ADMIN"
+
+    super_id = (await me(client, super_headers))["id"]
+    # admin cannot edit super admin's details
+    assert (await client.patch(f"{API}/{super_id}", json={"is_active": False}, headers=admin_headers)).status_code == 403
+    assert (await client.patch(f"{API}/{super_id}", json={"full_name": "Boss"}, headers=admin_headers)).status_code == 403
+    # super admin CAN edit their own details (name, email, password)
+    assert (await client.patch(f"{API}/{super_id}", json={"full_name": "Boss", "email": "super_updated@test.com"}, headers=super_headers)).status_code == 200
     # an admin cannot promote someone to super admin either
     victim = (await client.post(API, json=new_user("v@test.com"), headers=admin_headers)).json()["data"]["id"]
     assert (await client.patch(f"{API}/{victim}", json={"role": "SUPER_ADMIN"}, headers=admin_headers)).status_code == 403
@@ -99,13 +104,30 @@ async def test_cannot_lock_yourself_or_the_last_super_admin_out(client, admin_he
     assert (await client.patch(f"{API}/{admin_id}", json={"is_active": False}, headers=admin_headers)).status_code == 409
     assert (await client.patch(f"{API}/{admin_id}", json={"full_name": "Me", "password": "Another-pass-9"}, headers=admin_headers)).status_code == 200
 
-    # super admin tries to demote themselves -> blocked as self-modification; demoting via another super admin hits the guard
+    # super admin tries to demote themselves -> blocked as self-modification
     assert (await client.patch(f"{API}/{super_id}", json={"role": "ADMIN"}, headers=super_headers)).status_code == 409
-    second = (await client.post(API, json=new_user("s2@test.com", role="SUPER_ADMIN"), headers=super_headers)).json()["data"]["id"]
-    assert (await client.patch(f"{API}/{second}", json={"is_active": False}, headers=super_headers)).status_code == 200   # one left: fine
-    third = (await client.post(API, json=new_user("s3@test.com", role="SUPER_ADMIN"), headers=super_headers)).json()["data"]["id"]
-    s3_login = (await client.post("/api/v1/auth/login", json={"email": "s3@test.com", "password": "Password123!"})).json()["data"]
-    s3 = {"Authorization": f"Bearer {s3_login['access_token']}"}
-    # s3 deactivates the original super admin, then nobody but s3 remains; s3 cannot remove themselves (self rule)
-    assert (await client.patch(f"{API}/{super_id}", json={"is_active": False}, headers=s3)).status_code == 200
-    assert (await client.patch(f"{API}/{third}", json={"is_active": False}, headers=s3)).status_code == 409
+
+
+async def test_delete_user_rules(client, admin_headers, super_headers):
+    super_id = (await me(client, super_headers))["id"]
+    admin_id = (await me(client, admin_headers))["id"]
+
+    # 1. Super Admin cannot be deleted by anyone
+    del_super_by_admin = await client.delete(f"{API}/{super_id}", headers=admin_headers)
+    assert del_super_by_admin.status_code == 409 and del_super_by_admin.json()["error"]["code"] == "CANNOT_DELETE_SUPER_ADMIN"
+    del_super_by_super = await client.delete(f"{API}/{super_id}", headers=super_headers)
+    assert del_super_by_super.status_code == 409 and del_super_by_super.json()["error"]["code"] == "CANNOT_DELETE_SUPER_ADMIN"
+
+    # 2. Cannot delete yourself
+    del_self = await client.delete(f"{API}/{admin_id}", headers=admin_headers)
+    assert del_self.status_code == 409 and del_self.json()["error"]["code"] == "CANNOT_DELETE_SELF"
+
+    # 3. Super Admin can delete other staff users (admin, manager, analyst, viewer)
+    created = (await client.post(API, json=new_user("todelete@test.com", role="MARKETING_MANAGER"), headers=super_headers)).json()["data"]["id"]
+    del_ok = await client.delete(f"{API}/{created}", headers=super_headers)
+    assert del_ok.status_code == 200 and del_ok.json()["data"]["deleted"] is True
+
+    # 4. Admin can also delete non-super-admin staff users
+    created_by_admin = (await client.post(API, json=new_user("delbyadmin@test.com", role="VIEWER"), headers=admin_headers)).json()["data"]["id"]
+    del_by_admin_ok = await client.delete(f"{API}/{created_by_admin}", headers=admin_headers)
+    assert del_by_admin_ok.status_code == 200 and del_by_admin_ok.json()["data"]["deleted"] is True

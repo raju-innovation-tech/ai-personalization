@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../core/errors/app_failure.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../domain/ml_models.dart';
 import '../providers/ml_providers.dart';
@@ -37,13 +38,14 @@ class _MlInsightsScreenState extends ConsumerState<MlInsightsScreen>
   Future<void> _rebuild() async {
     setState(() => _rebuilding = true);
     try {
-      await ref.read(mlRebuildProvider.future);
+      await ref.read(mlRepositoryProvider).rebuild();
       if (mounted) {
         ref.invalidate(mlModelsProvider);
         ref.invalidate(mlTopChurnProvider);
         ref.invalidate(mlTopPurchaseProvider);
         ref.invalidate(mlChurnDistributionProvider);
         ref.invalidate(mlPurchaseDistributionProvider);
+        ref.invalidate(mlRebuildProvider);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('ML models rebuilt successfully'),
@@ -54,7 +56,7 @@ class _MlInsightsScreenState extends ConsumerState<MlInsightsScreen>
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Rebuild failed: $e'), backgroundColor: AppColors.danger),
+          SnackBar(content: Text('Rebuild failed: ${errorMessageOf(e)}'), backgroundColor: AppColors.danger),
         );
       }
     } finally {
@@ -674,41 +676,49 @@ class _DistributionTabState extends ConsumerState<_DistributionTab> {
                       child: Column(
                         children: [
                           Expanded(
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: entries.map((entry) {
-                                final ratio = maxCount > 0 ? entry.value / maxCount : 0.0;
-                                final bucketPct = int.tryParse(entry.key.split('-').first) ?? 0;
-                                final barColor = bucketPct >= 65
-                                    ? (_model == 'churn' ? AppColors.danger : AppColors.success)
-                                    : bucketPct >= 35
-                                        ? AppColors.warning
-                                        : (_model == 'churn' ? AppColors.success : AppColors.danger);
-                                return Expanded(
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(horizontal: 2),
-                                    child: Column(
-                                      mainAxisAlignment: MainAxisAlignment.end,
-                                      children: [
-                                        Text(
-                                          entry.value > 0 ? '${entry.value}' : '',
-                                          style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w600),
+                            child: LayoutBuilder(
+                              builder: (context, constraints) {
+                                final maxBarH = (constraints.maxHeight - 22).clamp(16.0, 300.0);
+                                return Row(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: entries.map((entry) {
+                                    final ratio = maxCount > 0 ? entry.value / maxCount : 0.0;
+                                    final barH = (ratio * maxBarH).clamp(entry.value > 0 ? 4.0 : 0.0, maxBarH);
+                                    final bucketPct = int.tryParse(entry.key.split('-').first) ?? 0;
+                                    final barColor = bucketPct >= 65
+                                        ? (_model == 'churn' ? AppColors.danger : AppColors.success)
+                                        : bucketPct >= 35
+                                            ? AppColors.warning
+                                            : (_model == 'churn' ? AppColors.success : AppColors.danger);
+                                    return Expanded(
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(horizontal: 2),
+                                        child: Column(
+                                          mainAxisAlignment: MainAxisAlignment.end,
+                                          children: [
+                                            Text(
+                                              entry.value > 0 ? '${entry.value}' : '',
+                                              style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w600),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                            const SizedBox(height: 2),
+                                            AnimatedContainer(
+                                              duration: const Duration(milliseconds: 600),
+                                              curve: Curves.easeOut,
+                                              height: barH,
+                                              decoration: BoxDecoration(
+                                                color: barColor,
+                                                borderRadius: BorderRadius.circular(4),
+                                              ),
+                                            ),
+                                          ],
                                         ),
-                                        const SizedBox(height: 2),
-                                        AnimatedContainer(
-                                          duration: const Duration(milliseconds: 600),
-                                          curve: Curves.easeOut,
-                                          height: ratio * 160,
-                                          decoration: BoxDecoration(
-                                            color: barColor,
-                                            borderRadius: BorderRadius.circular(4),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
+                                      ),
+                                    );
+                                  }).toList(),
                                 );
-                              }).toList(),
+                              },
                             ),
                           ),
                           const SizedBox(height: 6),
