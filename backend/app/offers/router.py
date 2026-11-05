@@ -109,7 +109,7 @@ async def stats(db: AsyncSession = Depends(get_db), _user: User = Depends(get_cu
 
 @router.get("", summary="List offers with performance")
 async def list_offers(
-    status: Literal["draft", "active", "paused", "ended"] | None = None,
+    status: Literal["draft", "active", "paused", "ended", "expired"] | None = None,
     q: str | None = Query(default=None, max_length=200, description="Matches name or code"),
     sort: Literal["created", "name", "priority", "ends"] = "created",
     page: Annotated[int, Query(ge=1)] = 1,
@@ -165,3 +165,15 @@ async def change_status(
     logger.info("offer_status_changed", code=offer.code, status=offer.status, by=user.email)
     stats_by_id = await service.stats_for(db, [offer.id])
     return success_response(service.offer_out(offer, stats_by_id.get(offer.id)))
+
+
+@router.delete("/{offer_id}", summary="Delete an offer")
+async def delete_offer(
+    offer_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(_manager),
+):
+    offer = await _offer_or_404(db, offer_id)
+    await service.delete_offer(db, offer)
+    logger.info("offer_deleted", code=offer.code, by=user.email)
+    return success_response({"message": f"Offer '{offer.name}' deleted successfully", "id": str(offer_id)})

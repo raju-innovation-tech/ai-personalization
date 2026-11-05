@@ -85,6 +85,7 @@ class _OffersScreenState extends ConsumerState<OffersScreen> {
       ('draft', 'Draft'),
       ('paused', 'Paused'),
       ('ended', 'Ended'),
+      ('expired', 'Expired'),
     ];
 
     return SingleChildScrollView(
@@ -273,6 +274,20 @@ class _OfferCard extends ConsumerWidget {
     if (offer.status != 'ended') {
       items.add(const PopupMenuItem(value: 'end', child: Text('End offer')));
     }
+    if (offer.status == 'draft') {
+      items.add(
+        const PopupMenuItem(
+          value: 'delete',
+          child: Row(
+            children: [
+              Icon(Icons.delete_outline, size: 18, color: AppColors.danger),
+              SizedBox(width: 8),
+              Text('Delete', style: TextStyle(color: AppColors.danger)),
+            ],
+          ),
+        ),
+      );
+    }
     return items;
   }
 
@@ -282,6 +297,47 @@ class _OfferCard extends ConsumerWidget {
     if (action == 'edit') {
       final saved = await showDialog<bool>(context: context, builder: (_) => OfferFormDialog(offer: offer));
       if (saved == true && context.mounted) refreshOffers(ref);
+      return;
+    }
+
+    if (action == 'delete') {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Delete this offer?'),
+          content: Text('Are you sure you want to delete "${offer.name}" (${offer.code})? This action cannot be undone.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('Delete'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true || !context.mounted) return;
+
+      try {
+        await ref.read(offersRepositoryProvider).deleteOffer(offer.id);
+        if (context.mounted) refreshOffers(ref);
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text('Offer "${offer.name}" (${offer.code}) deleted successfully.'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      } catch (error) {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(errorMessageOf(error)),
+            backgroundColor: AppColors.danger,
+          ),
+        );
+      }
       return;
     }
 

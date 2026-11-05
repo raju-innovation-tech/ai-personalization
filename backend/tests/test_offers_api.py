@@ -338,3 +338,29 @@ async def test_stats_and_dashboard_block(client, admin_headers):
 
     overview = (await client.get("/api/v1/analytics/overview", headers=admin_headers)).json()["data"]["offers"]
     assert overview == {"active": 1, "impressions": 1, "clicks": 1, "redemptions": 1, "discount_given": 100.0}
+
+
+async def test_delete_offer_and_expired_filter(client, admin_headers, db_session):
+    from sqlalchemy import update
+    from app.database.models.offer import Offer
+
+    # Create an active offer then update ends_at to the past
+    exp_offer = await create(client, admin_headers, "EXP1", activate=True)
+    past = datetime.now(timezone.utc) - timedelta(days=2)
+    await db_session.execute(update(Offer).where(Offer.code == "EXP1").values(ends_at=past))
+    await db_session.commit()
+
+    draft_offer = await create(client, admin_headers, "DFT1", activate=False)
+
+    # Test expired filter
+    res_exp = (await client.get(f"{API}?status=expired", headers=admin_headers)).json()["data"]
+    assert any(o["code"] == "EXP1" for o in res_exp["items"])
+    assert not any(o["code"] == "DFT1" for o in res_exp["items"])
+
+    # Test delete draft offer
+    del_res = await client.delete(f"{API}/{draft_offer['id']}", headers=admin_headers)
+    assert del_res.status_code == 200
+
+    # Ensure deleted offer is gone
+    check_res = await client.get(f"{API}/{draft_offer['id']}", headers=admin_headers)
+    assert check_res.status_code == 404

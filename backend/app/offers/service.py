@@ -227,8 +227,20 @@ async def offers_for_user(
 async def list_offers(
     db: AsyncSession, *, status: str | None, q: str | None, sort: str, page: int, page_size: int
 ) -> tuple[list[Offer], int]:
+    now = datetime.now(timezone.utc)
+
     def filtered(query):
-        if status:
+        if status == "expired":
+            query = query.where(
+                ((Offer.status == "active") & Offer.ends_at.is_not(None) & (Offer.ends_at <= now))
+                | (Offer.status == "expired")
+            )
+        elif status == "active":
+            query = query.where(
+                (Offer.status == "active")
+                & (Offer.ends_at.is_(None) | (Offer.ends_at > now))
+            )
+        elif status:
             query = query.where(Offer.status == status)
         if q:
             like = f"%{q.strip()}%"
@@ -301,6 +313,11 @@ async def change_status(db: AsyncSession, offer: Offer, new_status: str) -> Offe
     await db.commit()
     await db.refresh(offer)
     return offer
+
+
+async def delete_offer(db: AsyncSession, offer: Offer) -> None:
+    await db.delete(offer)
+    await db.commit()
 
 
 # ----------------------------------------------------- tracking / validate / redeem
@@ -478,10 +495,15 @@ async def totals(db: AsyncSession) -> dict:
     offers = (await db.execute(select(Offer))).scalars().all()
     by_status: dict[str, int] = {s: 0 for s in engine.STATUSES}
     active_now = 0
+    expired_count = 0
     for offer in offers:
         by_status[offer.status] = by_status.get(offer.status, 0) + 1
-        if engine.effective_status(to_rule(offer), now) == "active":
+        eff = engine.effective_status(to_rule(offer), now)
+        if eff == "active":
             active_now += 1
+        elif eff == "expired":
+            expired_count += 1
+    by_status["expired"] = expired_count
 
     impressions, clicks = await interactions("impression"), await interactions("click")
     redeemed, discount, revenue = await redemptions()

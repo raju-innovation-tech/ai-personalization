@@ -35,6 +35,10 @@ class OffersRepository {
     return Offer.fromJson(response['data'] as Map<String, dynamic>);
   }
 
+  Future<void> deleteOffer(String id) async {
+    await _apiClient.delete('/offers/$id');
+  }
+
   Future<List<OfferSuggestion>> forUser(String userId, {String? category, double? cartValue, int limit = 5}) async {
     final params = <String, dynamic>{'limit': limit};
     if (category != null && category.trim().isNotEmpty) params['category'] = category.trim();
