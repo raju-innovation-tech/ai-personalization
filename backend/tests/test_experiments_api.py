@@ -370,3 +370,19 @@ async def test_concurrent_first_requests_record_one_exposure(client, admin_heade
     assert all(r.status_code == 200 for r in responses)
     assert len({r.json()["data"]["experiment"]["variant"] for r in responses}) == 1
     assert (await client.get(f"{API}/{exp['id']}", headers=admin_headers)).json()["data"]["exposed_total"] == 1
+
+
+async def test_delete_draft_experiment(client, admin_headers):
+    # 1. Draft experiment can be deleted
+    draft = await create(client, admin_headers, reco_body("delete-me"), start=False)
+    del_res = await client.delete(f"{API}/{draft['id']}", headers=admin_headers)
+    assert del_res.status_code == 200
+
+    # Verify 404 after deletion
+    assert (await client.get(f"{API}/{draft['id']}", headers=admin_headers)).status_code == 404
+
+    # 2. Running experiment cannot be deleted
+    running = await create(client, admin_headers, reco_body("keep-running"), start=True)
+    bad_del = await client.delete(f"{API}/{running['id']}", headers=admin_headers)
+    assert bad_del.status_code == 409
+    assert bad_del.json()["error"]["code"] == "EXPERIMENT_NOT_DRAFT"

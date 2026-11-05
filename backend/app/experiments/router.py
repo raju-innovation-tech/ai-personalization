@@ -100,3 +100,15 @@ async def change_status(
     logger.info("experiment_status_changed", key=experiment.key, status=experiment.status, by=user.email)
     counts = await service.exposure_counts(db, [experiment.id])
     return success_response(service.experiment_out(experiment, counts.get(experiment.id)))
+
+
+@router.delete("/{experiment_id}", summary="Delete a draft experiment")
+async def delete_experiment(
+    experiment_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(_manager),
+):
+    experiment = await _or_404(db, experiment_id)
+    await service.delete_experiment(db, experiment)
+    logger.info("experiment_deleted", key=experiment.key, by=user.email)
+    return success_response({"message": f"Experiment '{experiment.name}' deleted successfully", "id": str(experiment_id)})

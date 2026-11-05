@@ -47,6 +47,10 @@ class ExperimentsRepository {
     return Experiment.fromJson(response['data'] as Map<String, dynamic>);
   }
 
+  Future<void> deleteExperiment(String id) async {
+    await _apiClient.delete('/experiments/$id');
+  }
+
   Future<AssignmentPreview> previewAssignment(String id, String userId) async {
     final response = await _apiClient.get('/experiments/$id/assign/${Uri.encodeComponent(userId)}');
     return AssignmentPreview.fromJson(response['data'] as Map<String, dynamic>);

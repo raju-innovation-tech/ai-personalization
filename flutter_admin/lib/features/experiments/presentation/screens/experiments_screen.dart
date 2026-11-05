@@ -207,13 +207,13 @@ class _StatsStrip extends StatelessWidget {
   }
 }
 
-class _ExperimentCard extends StatelessWidget {
+class _ExperimentCard extends ConsumerWidget {
   const _ExperimentCard({required this.experiment});
 
   final Experiment experiment;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final textTheme = Theme.of(context).textTheme;
     final small = textTheme.bodyMedium?.copyWith(fontSize: 12);
 
@@ -232,6 +232,69 @@ class _ExperimentCard extends StatelessWidget {
                   Expanded(child: Text(experiment.name, style: textTheme.titleMedium)),
                   const SizedBox(width: 8),
                   StatusPill(experiment.status),
+                  if (experiment.status == 'draft') ...[
+                    const SizedBox(width: 4),
+                    PopupMenuButton<String>(
+                      tooltip: 'Actions',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      icon: const Icon(Icons.more_vert, size: 20),
+                      onSelected: (action) async {
+                        if (action == 'delete') {
+                          final messenger = ScaffoldMessenger.of(context);
+                          final confirmed = await showDialog<bool>(
+                            context: context,
+                            builder: (dialogContext) => AlertDialog(
+                              title: const Text('Delete this draft experiment?'),
+                              content: Text('Are you sure you want to delete "${experiment.name}"? This action cannot be undone.'),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.of(dialogContext).pop(false),
+                                  child: const Text('Cancel'),
+                                ),
+                                FilledButton(
+                                  style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
+                                  onPressed: () => Navigator.of(dialogContext).pop(true),
+                                  child: const Text('Delete'),
+                                ),
+                              ],
+                            ),
+                          );
+                          if (confirmed != true || !context.mounted) return;
+
+                          try {
+                            await ref.read(experimentsRepositoryProvider).deleteExperiment(experiment.id);
+                            if (context.mounted) refreshExperiments(ref);
+                            messenger.showSnackBar(
+                              SnackBar(
+                                content: Text('Experiment "${experiment.name}" deleted successfully.'),
+                                backgroundColor: AppColors.success,
+                              ),
+                            );
+                          } catch (error) {
+                            messenger.showSnackBar(
+                              SnackBar(
+                                content: Text(errorMessageOf(error)),
+                                backgroundColor: AppColors.danger,
+                              ),
+                            );
+                          }
+                        }
+                      },
+                      itemBuilder: (_) => [
+                        const PopupMenuItem(
+                          value: 'delete',
+                          child: Row(
+                            children: [
+                              Icon(Icons.delete_outline, size: 18, color: AppColors.danger),
+                              SizedBox(width: 8),
+                              Text('Delete', style: TextStyle(color: AppColors.danger)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
               const SizedBox(height: 4),

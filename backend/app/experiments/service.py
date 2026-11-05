@@ -211,6 +211,13 @@ async def update_experiment(db: AsyncSession, experiment: Experiment, payload: E
     return experiment
 
 
+async def delete_experiment(db: AsyncSession, experiment: Experiment) -> None:
+    if experiment.status != "draft":
+        raise ApiError("EXPERIMENT_NOT_DRAFT", "Only draft experiments can be deleted.", status_code=409)
+    await db.delete(experiment)
+    await db.commit()
+
+
 async def change_status(db: AsyncSession, experiment: Experiment, new_status: str, winner_key: str | None) -> Experiment:
     if new_status == experiment.status:
         return experiment
