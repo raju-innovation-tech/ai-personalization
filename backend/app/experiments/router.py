@@ -16,6 +16,7 @@ logger = get_logger(__name__)
 
 router = APIRouter(prefix="/experiments", tags=["Experiments"])
 
+_super_admin = require_roles(UserRole.SUPER_ADMIN)
 _manager = require_roles(UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.MARKETING_MANAGER)
 
 
@@ -102,11 +103,11 @@ async def change_status(
     return success_response(service.experiment_out(experiment, counts.get(experiment.id)))
 
 
-@router.delete("/{experiment_id}", summary="Delete a draft experiment")
+@router.delete("/{experiment_id}", summary="Delete an experiment (super admin only)")
 async def delete_experiment(
     experiment_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(_manager),
+    user: User = Depends(_super_admin),
 ):
     experiment = await _or_404(db, experiment_id)
     await service.delete_experiment(db, experiment)

@@ -9,6 +9,9 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/adaptive_grid.dart';
 import '../../../../core/widgets/state_widgets.dart';
+import '../../../auth/domain/admin_user.dart';
+import '../../../auth/presentation/providers/auth_controller.dart';
+import '../../../auth/presentation/providers/auth_state.dart';
 import '../../../dashboard/presentation/providers/dashboard_providers.dart';
 import '../../domain/offer.dart';
 import '../providers/offers_providers.dart';
@@ -260,7 +263,7 @@ class _OfferCard extends ConsumerWidget {
 
   final Offer offer;
 
-  List<PopupMenuEntry<String>> _menuItems() {
+  List<PopupMenuEntry<String>> _menuItems(bool isSuperAdmin) {
     final items = <PopupMenuEntry<String>>[];
     if (offer.status != 'ended') {
       items.add(const PopupMenuItem(value: 'edit', child: Text('Edit')));
@@ -274,7 +277,7 @@ class _OfferCard extends ConsumerWidget {
     if (offer.status != 'ended') {
       items.add(const PopupMenuItem(value: 'end', child: Text('End offer')));
     }
-    if (offer.status == 'draft') {
+    if (isSuperAdmin) {
       items.add(
         const PopupMenuItem(
           value: 'delete',
@@ -384,7 +387,9 @@ class _OfferCard extends ConsumerWidget {
     final small = textTheme.bodyMedium?.copyWith(fontSize: 12);
     final stats = offer.stats;
     final statusColor = offerStatusColor(offer.effectiveStatus);
-    final menu = _menuItems();
+    final auth = ref.watch(authControllerProvider);
+    final isSuperAdmin = auth is AuthAuthenticated && auth.user.role == UserRole.superAdmin;
+    final menu = _menuItems(isSuperAdmin);
 
     final rules = [
       offer.headline,

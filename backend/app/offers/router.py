@@ -19,6 +19,7 @@ logger = get_logger(__name__)
 router = APIRouter(prefix="/offers", tags=["Offers"])
 
 # Marketing people manage campaigns; checkout integrations validate/redeem with the same roles.
+_super_admin = require_roles(UserRole.SUPER_ADMIN)
 _manager = require_roles(UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.MARKETING_MANAGER)
 
 
@@ -167,11 +168,11 @@ async def change_status(
     return success_response(service.offer_out(offer, stats_by_id.get(offer.id)))
 
 
-@router.delete("/{offer_id}", summary="Delete an offer")
+@router.delete("/{offer_id}", summary="Delete an offer (super admin only)")
 async def delete_offer(
     offer_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(_manager),
+    user: User = Depends(_super_admin),
 ):
     offer = await _offer_or_404(db, offer_id)
     await service.delete_offer(db, offer)

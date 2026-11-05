@@ -340,7 +340,7 @@ async def test_stats_and_dashboard_block(client, admin_headers):
     assert overview == {"active": 1, "impressions": 1, "clicks": 1, "redemptions": 1, "discount_given": 100.0}
 
 
-async def test_delete_offer_and_expired_filter(client, admin_headers, db_session):
+async def test_delete_offer_and_expired_filter(client, admin_headers, super_headers, db_session):
     from sqlalchemy import update
     from app.database.models.offer import Offer
 
@@ -357,10 +357,17 @@ async def test_delete_offer_and_expired_filter(client, admin_headers, db_session
     assert any(o["code"] == "EXP1" for o in res_exp["items"])
     assert not any(o["code"] == "DFT1" for o in res_exp["items"])
 
-    # Test delete draft offer
-    del_res = await client.delete(f"{API}/{draft_offer['id']}", headers=admin_headers)
-    assert del_res.status_code == 200
+    # 1. Admin cannot delete offer (403 Forbidden - only super admin allowed)
+    del_admin = await client.delete(f"{API}/{draft_offer['id']}", headers=admin_headers)
+    assert del_admin.status_code == 403
 
-    # Ensure deleted offer is gone
-    check_res = await client.get(f"{API}/{draft_offer['id']}", headers=admin_headers)
-    assert check_res.status_code == 404
+    # 2. Super Admin can delete any offer (including draft and active/expired)
+    del_super = await client.delete(f"{API}/{draft_offer['id']}", headers=super_headers)
+    assert del_super.status_code == 200
+
+    del_exp_super = await client.delete(f"{API}/{exp_offer['id']}", headers=super_headers)
+    assert del_exp_super.status_code == 200
+
+    # Ensure deleted offers are gone
+    assert (await client.get(f"{API}/{draft_offer['id']}", headers=admin_headers)).status_code == 404
+    assert (await client.get(f"{API}/{exp_offer['id']}", headers=admin_headers)).status_code == 404

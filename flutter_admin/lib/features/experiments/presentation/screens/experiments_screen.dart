@@ -7,6 +7,9 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/adaptive_grid.dart';
 import '../../../../core/widgets/state_widgets.dart';
+import '../../../auth/domain/admin_user.dart';
+import '../../../auth/presentation/providers/auth_controller.dart';
+import '../../../auth/presentation/providers/auth_state.dart';
 import '../../domain/experiment.dart';
 import '../providers/experiments_providers.dart';
 import '../widgets/experiment_form_dialog.dart';
@@ -216,6 +219,8 @@ class _ExperimentCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final textTheme = Theme.of(context).textTheme;
     final small = textTheme.bodyMedium?.copyWith(fontSize: 12);
+    final auth = ref.watch(authControllerProvider);
+    final isSuperAdmin = auth is AuthAuthenticated && auth.user.role == UserRole.superAdmin;
 
     return Card(
       clipBehavior: Clip.antiAlias,
@@ -232,7 +237,7 @@ class _ExperimentCard extends ConsumerWidget {
                   Expanded(child: Text(experiment.name, style: textTheme.titleMedium)),
                   const SizedBox(width: 8),
                   StatusPill(experiment.status),
-                  if (experiment.status == 'draft') ...[
+                  if (isSuperAdmin) ...[
                     const SizedBox(width: 4),
                     PopupMenuButton<String>(
                       tooltip: 'Actions',
@@ -245,8 +250,8 @@ class _ExperimentCard extends ConsumerWidget {
                           final confirmed = await showDialog<bool>(
                             context: context,
                             builder: (dialogContext) => AlertDialog(
-                              title: const Text('Delete this draft experiment?'),
-                              content: Text('Are you sure you want to delete "${experiment.name}"? This action cannot be undone.'),
+                              title: const Text('Delete this experiment?'),
+                              content: Text('Are you sure you want to permanently delete "${experiment.name}"? This action cannot be undone.'),
                               actions: [
                                 TextButton(
                                   onPressed: () => Navigator.of(dialogContext).pop(false),

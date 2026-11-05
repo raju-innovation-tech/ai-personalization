@@ -6,6 +6,9 @@ import '../../../../core/errors/app_failure.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/state_widgets.dart';
+import '../../../auth/domain/admin_user.dart';
+import '../../../auth/presentation/providers/auth_controller.dart';
+import '../../../auth/presentation/providers/auth_state.dart';
 import '../../domain/experiment.dart';
 import '../providers/experiments_providers.dart';
 import '../widgets/experiment_form_dialog.dart';
@@ -98,6 +101,8 @@ class _Detail extends ConsumerWidget {
     final resultsAsync = ref.watch(experimentResultsProvider(experiment.id));
     final results = resultsAsync.valueOrNull;
     final status = experiment.status;
+    final auth = ref.watch(authControllerProvider);
+    final isSuperAdmin = auth is AuthAuthenticated && auth.user.role == UserRole.superAdmin;
 
     final actions = <Widget>[
       if (status == 'draft') ...[
@@ -114,6 +119,30 @@ class _Detail extends ConsumerWidget {
           icon: const Icon(Icons.edit_outlined, size: 18),
           label: const Text('Edit'),
         ),
+      ],
+      if (status == 'running')
+        OutlinedButton.icon(
+          onPressed: () => _changeStatus(context, ref, 'paused'),
+          icon: const Icon(Icons.pause, size: 18),
+          label: const Text('Pause'),
+        ),
+      if (status == 'paused')
+        FilledButton.icon(
+          onPressed: () => _changeStatus(context, ref, 'running'),
+          icon: const Icon(Icons.play_arrow_rounded, size: 20),
+          label: const Text('Resume'),
+        ),
+      if (status == 'running' || status == 'paused')
+        OutlinedButton.icon(
+          onPressed: () async {
+            final winner = await _pickWinner(context, results);
+            if (winner == null || !context.mounted) return;
+            await _changeStatus(context, ref, 'completed', winnerKey: winner.isEmpty ? null : winner);
+          },
+          icon: const Icon(Icons.flag_outlined, size: 18),
+          label: const Text('Complete'),
+        ),
+      if (isSuperAdmin)
         OutlinedButton.icon(
           style: OutlinedButton.styleFrom(
             foregroundColor: AppColors.danger,
@@ -124,8 +153,8 @@ class _Detail extends ConsumerWidget {
             final confirmed = await showDialog<bool>(
               context: context,
               builder: (dialogContext) => AlertDialog(
-                title: const Text('Delete this draft experiment?'),
-                content: Text('Are you sure you want to delete "${experiment.name}"? This action cannot be undone.'),
+                title: Text('Delete this ${experiment.status} experiment?'),
+                content: Text('Are you sure you want to permanently delete "${experiment.name}"? This action cannot be undone.'),
                 actions: [
                   TextButton(
                     onPressed: () => Navigator.of(dialogContext).pop(false),
@@ -164,29 +193,6 @@ class _Detail extends ConsumerWidget {
           },
           icon: const Icon(Icons.delete_outline, size: 18),
           label: const Text('Delete'),
-        ),
-      ],
-      if (status == 'running')
-        OutlinedButton.icon(
-          onPressed: () => _changeStatus(context, ref, 'paused'),
-          icon: const Icon(Icons.pause, size: 18),
-          label: const Text('Pause'),
-        ),
-      if (status == 'paused')
-        FilledButton.icon(
-          onPressed: () => _changeStatus(context, ref, 'running'),
-          icon: const Icon(Icons.play_arrow_rounded, size: 20),
-          label: const Text('Resume'),
-        ),
-      if (status == 'running' || status == 'paused')
-        OutlinedButton.icon(
-          onPressed: () async {
-            final winner = await _pickWinner(context, results);
-            if (winner == null || !context.mounted) return;
-            await _changeStatus(context, ref, 'completed', winnerKey: winner.isEmpty ? null : winner);
-          },
-          icon: const Icon(Icons.flag_outlined, size: 18),
-          label: const Text('Complete'),
         ),
     ];
 
