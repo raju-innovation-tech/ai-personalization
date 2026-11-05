@@ -263,7 +263,7 @@ class _OfferCard extends ConsumerWidget {
 
   final Offer offer;
 
-  List<PopupMenuEntry<String>> _menuItems(bool isSuperAdmin) {
+  List<PopupMenuEntry<String>> _menuItems(bool canDelete) {
     final items = <PopupMenuEntry<String>>[];
     if (offer.status != 'ended') {
       items.add(const PopupMenuItem(value: 'edit', child: Text('Edit')));
@@ -277,7 +277,7 @@ class _OfferCard extends ConsumerWidget {
     if (offer.status != 'ended') {
       items.add(const PopupMenuItem(value: 'end', child: Text('End offer')));
     }
-    if (isSuperAdmin) {
+    if (canDelete) {
       items.add(
         const PopupMenuItem(
           value: 'delete',
@@ -388,8 +388,11 @@ class _OfferCard extends ConsumerWidget {
     final stats = offer.stats;
     final statusColor = offerStatusColor(offer.effectiveStatus);
     final auth = ref.watch(authControllerProvider);
-    final isSuperAdmin = auth is AuthAuthenticated && auth.user.role == UserRole.superAdmin;
-    final menu = _menuItems(isSuperAdmin);
+    final user = auth is AuthAuthenticated ? auth.user : null;
+    final isSuperAdmin = user?.role == UserRole.superAdmin;
+    final isAdmin = user?.role == UserRole.admin;
+    final canDelete = isSuperAdmin || (isAdmin && offer.status == 'draft');
+    final menu = _menuItems(canDelete);
 
     final rules = [
       offer.headline,

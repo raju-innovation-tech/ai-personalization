@@ -220,7 +220,10 @@ class _ExperimentCard extends ConsumerWidget {
     final textTheme = Theme.of(context).textTheme;
     final small = textTheme.bodyMedium?.copyWith(fontSize: 12);
     final auth = ref.watch(authControllerProvider);
-    final isSuperAdmin = auth is AuthAuthenticated && auth.user.role == UserRole.superAdmin;
+    final user = auth is AuthAuthenticated ? auth.user : null;
+    final isSuperAdmin = user?.role == UserRole.superAdmin;
+    final isAdmin = user?.role == UserRole.admin;
+    final canDelete = isSuperAdmin || (isAdmin && experiment.status == 'draft');
 
     return Card(
       clipBehavior: Clip.antiAlias,
@@ -237,7 +240,7 @@ class _ExperimentCard extends ConsumerWidget {
                   Expanded(child: Text(experiment.name, style: textTheme.titleMedium)),
                   const SizedBox(width: 8),
                   StatusPill(experiment.status),
-                  if (isSuperAdmin) ...[
+                  if (canDelete) ...[
                     const SizedBox(width: 4),
                     PopupMenuButton<String>(
                       tooltip: 'Actions',

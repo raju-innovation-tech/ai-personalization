@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import get_current_user, require_roles, verify_storefront_auth
 from app.core.logging import get_logger
-from app.core.responses import NotFoundError, success_response
+from app.core.responses import ForbiddenError, NotFoundError, success_response
 from app.database.database import get_db
 from app.database.models.user import User, UserRole
 from app.experiments import service as experiments_service
@@ -20,6 +20,7 @@ router = APIRouter(prefix="/offers", tags=["Offers"])
 
 # Marketing people manage campaigns; checkout integrations validate/redeem with the same roles.
 _super_admin = require_roles(UserRole.SUPER_ADMIN)
+_admin_or_super = require_roles(UserRole.SUPER_ADMIN, UserRole.ADMIN)
 _manager = require_roles(UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.MARKETING_MANAGER)
 
 
@@ -168,13 +169,18 @@ async def change_status(
     return success_response(service.offer_out(offer, stats_by_id.get(offer.id)))
 
 
-@router.delete("/{offer_id}", summary="Delete an offer (super admin only)")
+@router.delete("/{offer_id}", summary="Delete an offer (super admin, or admin for draft)")
 async def delete_offer(
     offer_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(_super_admin),
+    user: User = Depends(_admin_or_super),
 ):
     offer = await _offer_or_404(db, offer_id)
+    if user.role != UserRole.SUPER_ADMIN and offer.status != "draft":
+        raise ForbiddenError(
+            "Only Super Admin can delete active, paused, ended or expired offers. Admins can only delete draft offers.",
+            code="SUPER_ADMIN_REQUIRED",
+        )
     await service.delete_offer(db, offer)
     logger.info("offer_deleted", code=offer.code, by=user.email)
     return success_response({"message": f"Offer '{offer.name}' deleted successfully", "id": str(offer_id)})

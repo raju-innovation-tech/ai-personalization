@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import get_current_user, require_roles
 from app.core.logging import get_logger
-from app.core.responses import NotFoundError, success_response
+from app.core.responses import ForbiddenError, NotFoundError, success_response
 from app.database.database import get_db
 from app.database.models.user import User, UserRole
 from app.experiments import service
@@ -17,6 +17,7 @@ logger = get_logger(__name__)
 router = APIRouter(prefix="/experiments", tags=["Experiments"])
 
 _super_admin = require_roles(UserRole.SUPER_ADMIN)
+_admin_or_super = require_roles(UserRole.SUPER_ADMIN, UserRole.ADMIN)
 _manager = require_roles(UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.MARKETING_MANAGER)
 
 
@@ -103,13 +104,18 @@ async def change_status(
     return success_response(service.experiment_out(experiment, counts.get(experiment.id)))
 
 
-@router.delete("/{experiment_id}", summary="Delete an experiment (super admin only)")
+@router.delete("/{experiment_id}", summary="Delete an experiment (super admin, or admin for draft)")
 async def delete_experiment(
     experiment_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(_super_admin),
+    user: User = Depends(_admin_or_super),
 ):
     experiment = await _or_404(db, experiment_id)
+    if user.role != UserRole.SUPER_ADMIN and experiment.status != "draft":
+        raise ForbiddenError(
+            "Only Super Admin can delete running, paused or completed experiments. Admins can only delete draft experiments.",
+            code="SUPER_ADMIN_REQUIRED",
+        )
     await service.delete_experiment(db, experiment)
     logger.info("experiment_deleted", key=experiment.key, by=user.email)
     return success_response({"message": f"Experiment '{experiment.name}' deleted successfully", "id": str(experiment_id)})

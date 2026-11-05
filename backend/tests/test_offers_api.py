@@ -357,14 +357,15 @@ async def test_delete_offer_and_expired_filter(client, admin_headers, super_head
     assert any(o["code"] == "EXP1" for o in res_exp["items"])
     assert not any(o["code"] == "DFT1" for o in res_exp["items"])
 
-    # 1. Admin cannot delete offer (403 Forbidden - only super admin allowed)
-    del_admin = await client.delete(f"{API}/{draft_offer['id']}", headers=admin_headers)
-    assert del_admin.status_code == 403
+    # 1. Admin CAN delete draft offer
+    del_admin_draft = await client.delete(f"{API}/{draft_offer['id']}", headers=admin_headers)
+    assert del_admin_draft.status_code == 200
 
-    # 2. Super Admin can delete any offer (including draft and active/expired)
-    del_super = await client.delete(f"{API}/{draft_offer['id']}", headers=super_headers)
-    assert del_super.status_code == 200
+    # 2. Admin CANNOT delete active/expired offer (403 Forbidden - only super admin allowed)
+    del_admin_exp = await client.delete(f"{API}/{exp_offer['id']}", headers=admin_headers)
+    assert del_admin_exp.status_code == 403
 
+    # 3. Super Admin CAN delete any offer (including active/expired)
     del_exp_super = await client.delete(f"{API}/{exp_offer['id']}", headers=super_headers)
     assert del_exp_super.status_code == 200
 

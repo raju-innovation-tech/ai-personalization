@@ -102,7 +102,10 @@ class _Detail extends ConsumerWidget {
     final results = resultsAsync.valueOrNull;
     final status = experiment.status;
     final auth = ref.watch(authControllerProvider);
-    final isSuperAdmin = auth is AuthAuthenticated && auth.user.role == UserRole.superAdmin;
+    final user = auth is AuthAuthenticated ? auth.user : null;
+    final isSuperAdmin = user?.role == UserRole.superAdmin;
+    final isAdmin = user?.role == UserRole.admin;
+    final canDelete = isSuperAdmin || (isAdmin && experiment.status == 'draft');
 
     final actions = <Widget>[
       if (status == 'draft') ...[
@@ -142,7 +145,7 @@ class _Detail extends ConsumerWidget {
           icon: const Icon(Icons.flag_outlined, size: 18),
           label: const Text('Complete'),
         ),
-      if (isSuperAdmin)
+      if (canDelete)
         OutlinedButton.icon(
           style: OutlinedButton.styleFrom(
             foregroundColor: AppColors.danger,

@@ -373,18 +373,18 @@ async def test_concurrent_first_requests_record_one_exposure(client, admin_heade
 
 
 async def test_delete_experiment_super_admin_only(client, admin_headers, super_headers):
-    # 1. Admin cannot delete (403 Forbidden - only super admin allowed)
+    # 1. Admin CAN delete draft experiment
     draft = await create(client, admin_headers, reco_body("delete-me"), start=False)
     del_admin = await client.delete(f"{API}/{draft['id']}", headers=admin_headers)
-    assert del_admin.status_code == 403
-
-    # 2. Super Admin can delete draft experiment
-    del_super = await client.delete(f"{API}/{draft['id']}", headers=super_headers)
-    assert del_super.status_code == 200
+    assert del_admin.status_code == 200
     assert (await client.get(f"{API}/{draft['id']}", headers=admin_headers)).status_code == 404
 
-    # 3. Super Admin can delete any experiment (running, paused, completed)
+    # 2. Admin CANNOT delete running experiment (403 Forbidden - only super admin allowed)
     running = await create(client, admin_headers, reco_body("running-exp"), start=True)
-    del_running = await client.delete(f"{API}/{running['id']}", headers=super_headers)
-    assert del_running.status_code == 200
+    del_admin_running = await client.delete(f"{API}/{running['id']}", headers=admin_headers)
+    assert del_admin_running.status_code == 403
+
+    # 3. Super Admin CAN delete running/completed/paused experiment
+    del_running_super = await client.delete(f"{API}/{running['id']}", headers=super_headers)
+    assert del_running_super.status_code == 200
     assert (await client.get(f"{API}/{running['id']}", headers=admin_headers)).status_code == 404
